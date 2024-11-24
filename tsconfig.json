@@ -1,0 +1,13 @@
+{
+    "compilerOptions": {
+      "outDir": "./dist/",
+      "sourceMap": true,
+      "strict": true,
+      "noImplicitAny": true,
+      "module": "es6",
+      "target": "es2020",
+      "allowJs": true,
+      "moduleResolution": "node",
+      "types": ["@webgpu/types"]
+    }
+  }

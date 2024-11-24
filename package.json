@@ -1,0 +1,32 @@
+{
+  "name": "webgpu-sph",
+  "version": "1.0.0",
+  "description": "fluid simulation in webgpu",
+  "main": "index.js",
+  "scripts": {
+    "build": "webpack",
+    "start": "webpack serve --open"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/besmelh/webgpu-sph.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/besmelh/webgpu-sph/issues"
+  },
+  "homepage": "https://github.com/besmelh/webgpu-sph#readme",
+  "devDependencies": {
+    "@webgpu/types": "^0.1.40",
+    "ts-loader": "^9.5.1",
+    "typescript": "^5.7.2",
+    "webpack": "^5.96.1",
+    "webpack-cli": "^5.1.4",
+    "webpack-dev-server": "^5.1.0"
+  },
+  "dependencies": {
+    "gl-matrix": "^3.4.3"
+  }
+}
