@@ -1,19 +1,24 @@
 struct SimParams {
-    scalePressure: f32,
-    scaleViscosity: f32,
-    scaleGravity: f32,
-    gas_constant: f32,
-    rest_density: f32,
-    timeStep: f32,
-    smoothing_radius: f32,
-    viscosity: f32,
-    gravity: f32,
-    particle_mass: f32,
-    eps: f32,
-    bounce_damping: f32,
+    scale_params: vec4<f32>,      // scalePressure, scaleViscosity, scaleGravity, gas_constant
+    fluid_params: vec4<f32>,      // rest_density, timeStep, smoothing_radius, viscosity
+    physics_params: vec4<f32>,    // gravity, particle_mass, eps, bounce_damping
     min_domain_bound: vec4<f32>,
-    max_domain_bound: vec4<f32>,
+    max_domain_bound: vec4<f32>
 };
+
+// Helper function to access parameters
+fn get_smoothing_radius(params: SimParams) -> f32 { return params.fluid_params[2]; }
+fn get_particle_mass(params: SimParams) -> f32 { return params.physics_params[1]; }
+fn get_rest_density(params: SimParams) -> f32 { return params.fluid_params[0]; }
+fn get_gas_constant(params: SimParams) -> f32 { return params.scale_params[3]; }
+fn get_eps(params: SimParams) -> f32 { return params.physics_params[2]; }
+fn get_bounce_damping(params: SimParams) -> f32 { return params.physics_params[3]; }
+fn get_gravity(params: SimParams) -> f32 { return params.physics_params[0]; }
+fn get_scale_pressure(params: SimParams) -> f32 { return params.scale_params[0]; }
+fn get_scale_viscosity(params: SimParams) -> f32 { return params.scale_params[1]; }
+fn get_scale_gravity(params: SimParams) -> f32 { return params.scale_params[2]; }
+fn get_time_step(params: SimParams) -> f32 { return params.fluid_params[1]; }
+fn get_viscosity(params: SimParams) -> f32 { return params.fluid_params[3]; }
 
 struct Particle {
     position: vec4<f32>, // xyz = position, w = density
@@ -57,35 +62,36 @@ fn viscosityKernel(r: f32, h: f32) -> f32 {
 @compute @workgroup_size(64)
 fn computeDensity(@builtin(global_invocation_id) global_id: vec3<u32>) {
     let i = global_id.x;
-    var particle = particleBuffer.particles[i];
+    let p_i = particleBuffer.particles[i];
     var density = 0.0;
+    let h = get_smoothing_radius(params);
+    let mass = get_particle_mass(params);
 
     for (var j = 0u; j < arrayLength(&particleBuffer.particles); j++) {
         if (i == j) { continue; }
         
-        let other = particleBuffer.particles[j];
-        let r_vec = particle.position.xyz - other.position.xyz;
+        let p_j = particleBuffer.particles[j];
+        let r_vec = p_i.position.xyz - p_j.position.xyz;
         let r_len = length(r_vec);
 
-        if (r_len < params.smoothing_radius) {
-            density += params.particle_mass * densityKernel(r_len, params.smoothing_radius);
+        if (r_len < h) {
+            density += mass * densityKernel(r_len, h);
         }
     }
 
-    var newParticle = particle;
-    newParticle.position.w = density;
-    particleBuffer.particles[i] = newParticle;
+    particleBuffer.particles[i].position.w = density;
 }
 
 @compute @workgroup_size(64)
 fn computeForces(@builtin(global_invocation_id) global_id: vec3<u32>) {
     let i = global_id.x;
-    var particle = particleBuffer.particles[i];
-    let density = particle.position.w;
+    let p_i = particleBuffer.particles[i];
+    let density_i = p_i.position.w;
+    let h = get_smoothing_radius(params);
+    let mass = get_particle_mass(params);
     
-    let pressure = params.gas_constant * (density - params.rest_density);
-    var newParticle = particle;
-    newParticle.velocity.w = pressure;
+    let pressure_i = get_gas_constant(params) * (density_i - get_rest_density(params));
+    particleBuffer.particles[i].velocity.w = pressure_i;
 
     var pressureForce = vec3<f32>(0.0);
     var viscosityForce = vec3<f32>(0.0);
@@ -93,47 +99,46 @@ fn computeForces(@builtin(global_invocation_id) global_id: vec3<u32>) {
     for (var j = 0u; j < arrayLength(&particleBuffer.particles); j++) {
         if (i == j) { continue; }
 
-        let other = particleBuffer.particles[j];
-        let r_vec = particle.position.xyz - other.position.xyz;
+        let p_j = particleBuffer.particles[j];
+        let r_vec = p_i.position.xyz - p_j.position.xyz;
         let r_len = length(r_vec);
 
-        if (r_len < params.smoothing_radius && r_len > 0.0) {
-            let r_norm = r_vec / (r_len + params.eps);
+        if (r_len < h && r_len > 0.0) {
+            let r_norm = r_vec / (r_len + get_eps(params));
             
-            let other_pressure = other.velocity.w;
-            let other_density = other.position.w;
-            pressureForce += params.particle_mass * 
-                ((pressure + other_pressure)/(2.0 * other_density)) * 
-                pressureKernel(r_len, params.smoothing_radius) * r_norm;
+            let pressure_j = p_j.velocity.w;
+            let density_j = p_j.position.w;
+            pressureForce += mass * 
+                ((pressure_i + pressure_j)/(2.0 * density_j)) * 
+                pressureKernel(r_len, h) * r_norm;
 
-            let velocity_diff = other.velocity.xyz - particle.velocity.xyz;
-            viscosityForce += params.particle_mass * 
-                (velocity_diff / other.position.w) * 
-                viscosityKernel(r_len, params.smoothing_radius);
+            let velocity_diff = p_j.velocity.xyz - p_i.velocity.xyz;
+            viscosityForce += mass * 
+                (velocity_diff / p_j.position.w) * 
+                viscosityKernel(r_len, h);
         }
     }
 
-    let gravityForce = vec3<f32>(0.0, -1.0, 0.0) * params.gravity;
-    let totalForce = -1.0 * pressureForce * params.scalePressure + 
-                     viscosityForce * params.scaleViscosity + 
-                     gravityForce * params.scaleGravity;
+    let gravityForce = vec3<f32>(0.0, -1.0, 0.0) * get_gravity(params);
+    let totalForce = -1.0 * pressureForce * get_scale_pressure(params) + 
+                     viscosityForce * get_scale_viscosity(params) + 
+                     gravityForce * get_scale_gravity(params);
 
-    let acceleration = totalForce / density;
+    let acceleration = totalForce / density_i;
     
-    var newVel = particle.velocity.xyz + params.timeStep * acceleration;
-    var newPos = particle.position.xyz + params.timeStep * newVel;
+    var newVel = p_i.velocity.xyz + get_time_step(params) * acceleration;
+    var newPos = p_i.position.xyz + get_time_step(params) * newVel;
 
     for (var dim = 0; dim < 3; dim++) {
         if (newPos[dim] < params.min_domain_bound[dim]) {
             newPos[dim] = params.min_domain_bound[dim];
-            newVel[dim] *= -params.bounce_damping;
+            newVel[dim] *= -get_bounce_damping(params);
         } else if (newPos[dim] > params.max_domain_bound[dim]) {
             newPos[dim] = params.max_domain_bound[dim];
-            newVel[dim] *= -params.bounce_damping;
+            newVel[dim] *= -get_bounce_damping(params);
         }
     }
 
-    newParticle.position = vec4<f32>(newPos.x, newPos.y, newPos.z, density);
-    newParticle.velocity = vec4<f32>(newVel.x, newVel.y, newVel.z, pressure);
-    particleBuffer.particles[i] = newParticle;
+    particleBuffer.particles[i].position = vec4<f32>(newPos, density_i);
+    particleBuffer.particles[i].velocity = vec4<f32>(newVel, pressure_i);
 }

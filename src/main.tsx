@@ -47,11 +47,11 @@ class WebGPUApp {
             timeStep: 0.01,
             smoothing_radius: 0.28,
             viscosity: 12.7,
-            gravity: 100,
+            gravity: 9.8,
             particle_mass: 0.123,
             eps: 0.01,
             bounce_damping: 0.004,
-            min_domain_bound: [-1.0, -1.0, -1.0, 0.0],
+            min_domain_bound: [-2.0, -2.0, -2.0, 0.0],
             max_domain_bound: [1.0, 1.0, 1.0, 0.0]
         };
 

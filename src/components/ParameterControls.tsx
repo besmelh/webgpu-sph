@@ -56,7 +56,7 @@ const ParameterControls: React.FC<{ onParamChange: (params: SimulationParams) =>
         timeStep: 0.01,
         smoothing_radius: 0.28,
         viscosity: 12.7,
-        gravity: 9.4,
+        gravity: 100,
         particle_mass: 0.123,
         eps: 0.01,
         bounce_damping: 0.004,
