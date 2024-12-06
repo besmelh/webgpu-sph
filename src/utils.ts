@@ -12,30 +12,43 @@ export class CanvasResizeHandler {
         this.format = format;
         this.resizeCallback = callback;
         this.setupResizeHandler();
+        this.handleResize();
+    }
+
+    private handleResize = () => {
+        const parentRect = this.canvas.parentElement?.getBoundingClientRect();
+        if (!parentRect) return;
+
+        // Get the device pixel ratio
+        const dpr = window.devicePixelRatio || 1;
+        
+        // Set the canvas size in pixels
+        this.canvas.width = parentRect.width * dpr;
+        this.canvas.height = parentRect.height * dpr;
+        
+        // Set the canvas display size in CSS pixels
+        this.canvas.style.width = `${parentRect.width}px`;
+        this.canvas.style.height = `${parentRect.height}px`;
+
+        // Reconfigure the context
+        this.context.configure({
+            device: this.device,
+            format: this.format,
+            alphaMode: 'premultiplied',
+            usage: GPUTextureUsage.RENDER_ATTACHMENT,
+        });
+
+        this.resizeCallback();
     }
 
     private setupResizeHandler() {
-        const observer = new ResizeObserver(entries => {
-            for (const entry of entries) {
-                const width = entry.contentRect.width;
-                const height = entry.contentRect.height;
-                
-                this.canvas.width = width * window.devicePixelRatio;
-                this.canvas.height = height * window.devicePixelRatio;
-                
-                this.context.configure({
-                    device: this.device,
-                    format: this.format,
-                    alphaMode: 'premultiplied',
-                    usage: GPUTextureUsage.RENDER_ATTACHMENT,
-                });
-
-                this.resizeCallback();
-            }
-        });
-
-        observer.observe(this.canvas);
-    }
+        // Use ResizeObserver for more efficient resize handling
+        const observer = new ResizeObserver(this.handleResize);
+        if (this.canvas.parentElement) {
+            observer.observe(this.canvas.parentElement);
+        }
+    }        
+  
 }
 
 

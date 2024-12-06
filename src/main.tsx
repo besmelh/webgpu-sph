@@ -1,5 +1,8 @@
+import * as React from 'react';
 import { SPHSimulation, SimulationParams } from './simulation';
 import { Renderer } from './renderer';
+import { createRoot } from 'react-dom/client';
+import ParameterControls from './components/ParameterControls';
 
 class WebGPUApp {
     private canvas: HTMLCanvasElement;
@@ -10,7 +13,7 @@ class WebGPUApp {
     private animationFrameId: number = 0;
 
     constructor() {
-        this.canvas = document.querySelector('#gpuCanvas') as HTMLCanvasElement; 
+        this.canvas = document.querySelector('#gpuCanvas') as HTMLCanvasElement;
         if (!this.canvas) throw new Error('No canvas element found');
     }
 
@@ -51,8 +54,31 @@ class WebGPUApp {
             min_domain_bound: [-1.0, -1.0, -1.0, 0.0],
             max_domain_bound: [1.0, 1.0, 1.0, 0.0]
         };
+
         this.simulation.updateSimulationParams(params);
+        
+        // Initialize UI after simulation is created
+        this.initUI();
     }
+
+    private initUI() {
+        const uiRoot = document.getElementById('ui-root');
+        if (uiRoot) {
+            const root = createRoot(uiRoot);
+            root.render(
+                <React.StrictMode>
+                    <ParameterControls 
+                        onParamChange={(params: SimulationParams) => {
+                            // Make sure we're using the right method name consistently
+                            this.simulation.updateSimulationParams(params);
+                        }}
+                    />
+                </React.StrictMode>
+            );
+        }
+    }
+    
+    // }
 
     render = () => {
         // Run simulation step

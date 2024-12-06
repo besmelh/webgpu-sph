@@ -19,6 +19,9 @@
   },
   "homepage": "https://github.com/besmelh/webgpu-sph#readme",
   "devDependencies": {
+    "@types/react": "^19.0.1",
+    "@types/react-dom": "^19.0.1",
+    "@types/styled-components": "^5.1.34",
     "@webgpu/types": "^0.1.51",
     "html-webpack-plugin": "^5.6.3",
     "ts-loader": "^9.5.1",
@@ -28,6 +31,9 @@
     "webpack-dev-server": "^4.15.1"
   },
   "dependencies": {
-    "gl-matrix": "^3.4.3"
+    "gl-matrix": "^3.4.3",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0",
+    "styled-components": "^6.1.13"
   }
 }

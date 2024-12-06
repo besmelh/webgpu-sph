@@ -1,39 +1,14 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <meta charset="utf-8">
     <title>WebGPU SPH Simulation</title>
     <style>
-        body {
-            margin: 0;
-            padding: 0;
-            width: 100vw;
-            height: 100vh;
-            background: #000;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            overflow: hidden;
-        }
-        canvas {
-            width: 100vw;
-            height: 100vh;
-        }
-        #overlay {
-            position: fixed;
-            top: 10px;
-            left: 10px;
-            color: white;
-            font-family: monospace;
-            pointer-events: none;
-        }
+        body { margin: 0; }
+        canvas { width: 100vw; height: 100vh; }
     </style>
 </head>
 <body>
     <canvas id="gpuCanvas"></canvas>
-    <div id="overlay">
-        <div id="fps"></div>
-        <div id="particleCount"></div>
-    </div>
+    <div id="ui-root"></div>
 </body>
 </html>

@@ -24,6 +24,8 @@ interface Particle {
 
 export class SPHSimulation {
     private device: GPUDevice;
+    // private simulationParamsBuffer: GPUBuffer;
+
     private particleBuffer!: GPUBuffer;
     private parameterBuffer!: GPUBuffer;
     private computePipeline!: GPUComputePipeline;
@@ -35,6 +37,35 @@ export class SPHSimulation {
         this.device = device;
         this.initializeBuffers();
         this.createPipeline();
+        // this.simulationParamsBuffer = device.createBuffer({
+        //     size: 64, // 12 parameters * 4 bytes each
+        //     usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
+        // });
+    }
+
+
+    updateParameters(params: SimulationParams) {
+        // Create a Float32Array from the parameters
+        const paramData = new Float32Array([
+            params.scalePressure,
+            params.scaleViscosity,
+            params.scaleGravity,
+            params.gas_constant,
+            params.rest_density,
+            params.timeStep,
+            params.smoothing_radius,
+            params.viscosity,
+            params.gravity,
+            params.particle_mass,
+            params.eps,
+            params.bounce_damping,
+            ...params.min_domain_bound,
+            ...params.max_domain_bound,
+        ]);
+
+        // Write the parameters to the GPU buffer
+        this.device.queue.writeBuffer(this.parameterBuffer, 0, paramData);
+
     }
 
     private initializeBuffers() {
@@ -46,54 +77,48 @@ export class SPHSimulation {
         });
 
         // Initialize particles with random positions
-        const particles: Particle[] = [];
+        const particleData = new Float32Array(this.numParticles * 8);
         for (let i = 0; i < this.numParticles; i++) {
-            particles.push({
-                position: new Float32Array([
-                    Math.random() * 2 - 1, // x: [-1, 1]
-                    Math.random() * 2 - 1, // y: [-1, 1]
-                    Math.random() * 2 - 1, // z: [-1, 1]
-                    0                      // density
-                ]),
-                velocity: new Float32Array([0, 0, 0, 0]) // zero initial velocity, w = pressure
-            });
+            const baseIndex = i * 8;
+            // Position (xyz) and density (w)
+            particleData[baseIndex + 0] = Math.random() * 2 - 1; // x: [-1, 1]
+            particleData[baseIndex + 1] = Math.random() * 2 - 1; // y: [-1, 1]
+            particleData[baseIndex + 2] = Math.random() * 2 - 1; // z: [-1, 1]
+            particleData[baseIndex + 3] = 0;                     // density
+            // Velocity (xyz) and pressure (w)
+            particleData[baseIndex + 4] = 0;
+            particleData[baseIndex + 5] = 0;
+            particleData[baseIndex + 6] = 0;
+            particleData[baseIndex + 7] = 0;
         }
-
-        // Upload particle data
-        const particleData = new Float32Array(this.numParticles * 8); // 8 floats per particle
-        let offset = 0;
-        particles.forEach(particle => {
-            particleData.set(particle.position, offset);
-            particleData.set(particle.velocity, offset + 4);
-            offset += 8;
-        });
         this.device.queue.writeBuffer(this.particleBuffer, 0, particleData);
 
         // Create parameter buffer
         this.parameterBuffer = this.device.createBuffer({
-            size: 64, // Size of SimParams struct
+            size: 96, // Size needs to match SimParams struct in shader
             usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
         });
     }
 
     private createPipeline() {
-        // Create compute pipeline
+        const bindGroupLayout = this.device.createBindGroupLayout({
+            entries: [
+                {
+                    binding: 0,
+                    visibility: GPUShaderStage.COMPUTE,
+                    buffer: { type: 'uniform' }
+                },
+                {
+                    binding: 1,
+                    visibility: GPUShaderStage.COMPUTE,
+                    buffer: { type: 'storage' }
+                }
+            ]
+        });
+
         this.computePipeline = this.device.createComputePipeline({
             layout: this.device.createPipelineLayout({
-                bindGroupLayouts: [this.device.createBindGroupLayout({
-                    entries: [
-                        {
-                            binding: 0,
-                            visibility: GPUShaderStage.COMPUTE,
-                            buffer: { type: 'uniform' }
-                        },
-                        {
-                            binding: 1,
-                            visibility: GPUShaderStage.COMPUTE,
-                            buffer: { type: 'storage' }
-                        }
-                    ]
-                })]
+                bindGroupLayouts: [bindGroupLayout]
             }),
             compute: {
                 module: this.device.createShaderModule({
@@ -103,9 +128,8 @@ export class SPHSimulation {
             }
         });
 
-        // Create bind group
         this.computeBindGroup = this.device.createBindGroup({
-            layout: this.computePipeline.getBindGroupLayout(0),
+            layout: bindGroupLayout,
             entries: [
                 {
                     binding: 0,
@@ -151,9 +175,9 @@ export class SPHSimulation {
         passEncoder.dispatchWorkgroups(Math.ceil(this.numParticles / this.workgroupSize));
 
         // Compute forces
-        passEncoder.setPipeline(this.computePipeline);
-        passEncoder.setBindGroup(0, this.computeBindGroup);
-        passEncoder.dispatchWorkgroups(Math.ceil(this.numParticles / this.workgroupSize));
+        // passEncoder.setPipeline(this.computePipeline);
+        // passEncoder.setBindGroup(0, this.computeBindGroup);
+        // passEncoder.dispatchWorkgroups(Math.ceil(this.numParticles / this.workgroupSize));
 
         passEncoder.end();
         return commandEncoder.finish();

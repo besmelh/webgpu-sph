@@ -8,10 +8,14 @@
       "target": "es2020",
       "allowJs": true,
       "moduleResolution": "node",
+      "jsx": "react",
+      "allowSyntheticDefaultImports": true,
+      "esModuleInterop": true,
       "typeRoots": [
           "./node_modules/@types",
           "./src/types"
-      ]
+      ],
+      "types": ["react"]
   },
   "include": ["src/**/*"]
 }
