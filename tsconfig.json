@@ -1,5 +1,5 @@
 {
-    "compilerOptions": {
+  "compilerOptions": {
       "outDir": "./dist/",
       "sourceMap": true,
       "strict": true,
@@ -8,6 +8,10 @@
       "target": "es2020",
       "allowJs": true,
       "moduleResolution": "node",
-      "types": ["@webgpu/types"]
-    }
-  }
+      "typeRoots": [
+          "./node_modules/@types",
+          "./src/types"
+      ]
+  },
+  "include": ["src/**/*"]
+}
