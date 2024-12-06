@@ -1,53 +1,38 @@
-/// <reference types="@webgpu/types" />
 import { SPHSimulation, SimulationParams } from './simulation';
+import { Renderer } from './renderer';
 
 class WebGPUApp {
-    canvas: HTMLCanvasElement;
-    adapter: GPUAdapter | null = null;
-    device: GPUDevice | null = null;
-    context: GPUCanvasContext | null = null;
-    simulation: SPHSimulation | null = null;
-
+    private canvas: HTMLCanvasElement;
+    private device!: GPUDevice;
+    private context!: GPUCanvasContext;
+    private simulation!: SPHSimulation;
+    private renderer!: Renderer;
+    private animationFrameId: number = 0;
 
     constructor() {
-        this.canvas = document.querySelector('#gpuCanvas') as HTMLCanvasElement;
+        this.canvas = document.querySelector('#gpuCanvas') as HTMLCanvasElement; 
         if (!this.canvas) throw new Error('No canvas element found');
     }
 
     async initialize() {
-        // Check for WebGPU support
-        if (!navigator.gpu) {
-            throw new Error('WebGPU not supported');
-        }
+        if (!navigator.gpu) throw new Error('WebGPU not supported');
 
-        // Get GPU adapter
-        this.adapter = await navigator.gpu.requestAdapter();
-        if (!this.adapter) {
-            throw new Error('No GPU adapter found');
-        }
+        const adapter = await navigator.gpu.requestAdapter();
+        if (!adapter) throw new Error('No GPU adapter found');
 
-        // Get GPU device
-        this.device = await this.adapter.requestDevice();
-        if (!this.device) {
-            throw new Error('No GPU device found');
-        }
+        this.device = await adapter.requestDevice();
+        this.context = this.canvas.getContext('webgpu') as GPUCanvasContext;
         
-        // Setup canvas context
-        this.context = this.canvas.getContext('webgpu');
-        if (!this.context) {
-            throw new Error('Could not get WebGPU context');
-        }
-
-        // Configure the swap chain
-        const canvasFormat = navigator.gpu.getPreferredCanvasFormat();
+        const format = navigator.gpu.getPreferredCanvasFormat();
         this.context.configure({
             device: this.device,
-            format: canvasFormat,
+            format: format,
             alphaMode: 'premultiplied',
         });
 
-        // Create simulation
+        // Initialize simulation
         this.simulation = new SPHSimulation(this.device);
+        this.renderer = new Renderer(this.device, this.context, format);
 
         // Set initial parameters
         const params: SimulationParams = {
@@ -66,28 +51,37 @@ class WebGPUApp {
             min_domain_bound: [-1.0, -1.0, -1.0, 0.0],
             max_domain_bound: [1.0, 1.0, 1.0, 0.0]
         };
-
         this.simulation.updateSimulationParams(params);
-        console.log('WebGPU initialized successfully');
     }
 
-    render() {
-        if (!this.simulation || !this.device) {
-            return;
-        }
-        
-        // Get command buffer for simulation
+    render = () => {
+        // Run simulation step
         const commandBuffer = this.simulation.simulate();
-        
-        // Submit command buffer
         this.device.queue.submit([commandBuffer]);
+
+        // Render particles
+        this.renderer.render(this.simulation.getParticleBuffer());
+
+        // Request next frame
+        this.animationFrameId = requestAnimationFrame(this.render);
+    }
+
+    start() {
+        this.render();
+    }
+
+    stop() {
+        if (this.animationFrameId) {
+            cancelAnimationFrame(this.animationFrameId);
+        }
     }
 }
 
 // Start the application
-async function start() {
+async function main() {
     const app = new WebGPUApp();
     await app.initialize();
+    app.start();
 }
 
-start().catch(console.error);
+main().catch(console.error);
