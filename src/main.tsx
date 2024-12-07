@@ -51,7 +51,7 @@ class WebGPUApp {
             particle_mass: 0.123,
             eps: 0.01,
             bounce_damping: 0.004,
-            min_domain_bound: [-2.0, -2.0, -2.0, 0.0],
+            min_domain_bound: [-1.0, -1.0, -1.0, 0.0],
             max_domain_bound: [1.0, 1.0, 1.0, 0.0]
         };
 

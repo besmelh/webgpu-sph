@@ -109,11 +109,12 @@ export class Renderer {
         // Update camera matrices
         const radius = 5;
         // Convert arrays to vec3
-        const eye = vec3.fromValues(
-            radius * Math.sin(performance.now() / 1000),
-            2,
-            radius * Math.cos(performance.now() / 1000)
-        );        
+        // const eye = vec3.fromValues(
+        //     radius * Math.sin(performance.now() / 1000),
+        //     2,
+        //     radius * Math.cos(performance.now() / 1000)
+        // );     
+        const eye = vec3.fromValues(5, 0, 0);    
         const center = vec3.fromValues(0, 0, 0);
         const up = vec3.fromValues(0, 1, 0);
 
