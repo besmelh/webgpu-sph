@@ -1,22 +1,37 @@
 import React, { useState, useCallback } from 'react';
 import styled from 'styled-components';
+import { defaultSimulationParams, PARAM_CONSTRAINTS } from '../config/simulationDefaults';
+import { SimulationParams } from '../types/simulation';
 
-interface SimulationParams {
-    scalePressure: number;
-    scaleViscosity: number;
-    scaleGravity: number;
-    gas_constant: number;
-    rest_density: number;
-    timeStep: number;
-    smoothing_radius: number;
-    viscosity: number;
-    gravity: number;
-    particle_mass: number;
-    eps: number;
-    bounce_damping: number;
-    min_domain_bound: [number, number, number, number];
-    max_domain_bound: [number, number, number, number];
-}
+// Type guard to check if a parameter is a domain bound
+const isDomainBoundParam = (param: keyof SimulationParams): param is 'min_domain_bound' | 'max_domain_bound' => {
+    return param === 'min_domain_bound' || param === 'max_domain_bound';
+};
+
+// Type guard for scale parameters
+const isScaleParam = (param: keyof SimulationParams): boolean => {
+    return param.startsWith('scale') || param === 'bounce_damping';
+};
+
+// Type guard for time step parameter
+const isTimeStepParam = (param: keyof SimulationParams): boolean => {
+    return param === 'timeStep';
+};
+
+// Get parameter constraints based on parameter type
+const getParamConstraints = (param: keyof SimulationParams) => {
+    if (isDomainBoundParam(param)) {
+        return PARAM_CONSTRAINTS.DOMAIN_BOUNDS;
+    }
+    if (isScaleParam(param)) {
+        return PARAM_CONSTRAINTS.SCALES;
+    }
+    if (isTimeStepParam(param)) {
+        return PARAM_CONSTRAINTS.TIME_STEP;
+    }
+    return PARAM_CONSTRAINTS.GENERAL;
+};
+
 
 const StyledControlPanel = styled.div`
     position: fixed;
@@ -46,32 +61,34 @@ const Value = styled.span`
     float: right;
 `;
 
-const ParameterControls: React.FC<{ onParamChange: (params: SimulationParams) => void }> = ({ onParamChange }) => {
-    const [params, setParams] = useState<SimulationParams>({
-        scalePressure: 1.0,
-        scaleViscosity: 1.0,
-        scaleGravity: 1.0,
-        gas_constant: 1.0,
-        rest_density: 100.0,
-        timeStep: 0.1,
-        smoothing_radius: 0.28,
-        viscosity: 12.7,
-        gravity: 9.8,
-        particle_mass: 0.123,
-        eps: 0.01,
-        bounce_damping: 0.004,
-        min_domain_bound: [-1.0, -1.0, -1.0, 0.0],
-        max_domain_bound: [1.0, 1.0, 1.0, 0.0]
-    });
+const Button = styled.button`
+    background-color: #3b82f6;
+    color: white;
+    padding: 8px 16px;
+    border-radius: 8px;
+    border: none;
+    cursor: pointer;
+    transition: background-color 0.2s;
+
+    &:hover {
+        background-color: #2563eb;
+    }
+`;
+
+const ParameterControls: React.FC<{ 
+    onParamChange: (params: SimulationParams) => void 
+    onReset: () => void ,
+    onReinitialize: () => void
+    }> = ({ onParamChange, onReset, onReinitialize }) => {
+
+    const [params, setParams] = useState<SimulationParams>(defaultSimulationParams);
 
     const handleChange = useCallback((param: keyof SimulationParams, value: number, index?: number) => {
         const newParams = { ...params };
         
-        if (param === 'min_domain_bound' || param === 'max_domain_bound') {
-            if (typeof index === 'number') {
-                (newParams[param] as number[])[index] = value;
-            }
-        } else {
+        if (isDomainBoundParam(param) && typeof index === 'number') {
+            newParams[param][index] = value;
+        } else if (!isDomainBoundParam(param)) {
             (newParams[param] as number) = value;
         }
         
@@ -79,29 +96,45 @@ const ParameterControls: React.FC<{ onParamChange: (params: SimulationParams) =>
         onParamChange(newParams);
     }, [params, onParamChange]);
 
+    const handleReset = useCallback(() => {
+        setParams(defaultSimulationParams);
+        onParamChange(defaultSimulationParams);
+        onReset();
+    }, [onParamChange, onReset]);
+
     return (
         <StyledControlPanel>
             <h2>Simulation Parameters</h2>
-            {Object.entries(params).map(([param, value]) => {
-                if (param === 'min_domain_bound' || param === 'max_domain_bound') {
+            <Button onClick={handleReset}>
+                Reset
+            </Button>
+            <Button onClick={onReinitialize}>
+                Reinitialize
+            </Button>
+            
+            {Object.entries(params).map(([paramKey, value]) => {
+                const param = paramKey as keyof SimulationParams;
+                const constraints = getParamConstraints(param);
+
+                if (isDomainBoundParam(param)) {
                     return (
                         <ControlGroup key={param}>
                             <Label>{param}</Label>
                             {(value as number[]).map((v, idx) => (
-                                <div key={`${param}-${idx}`}>
+                                <ControlGroup key={`${param}-${idx}`}>
                                     <Label>
                                         {`${param}[${idx}]`}
                                         <Value>{v.toFixed(3)}</Value>
                                     </Label>
                                     <Slider
                                         type="range"
-                                        min={param === 'min_domain_bound' ? -10 : 0}
-                                        max={param === 'min_domain_bound' ? 0 : 10}
-                                        step={0.1}
+                                        min={param === 'min_domain_bound' ? constraints.MIN : 0}
+                                        max={param === 'min_domain_bound' ? 0 : constraints.MAX}
+                                        step={constraints.STEP}
                                         value={v}
-                                        onChange={(e) => handleChange(param as keyof SimulationParams, parseFloat(e.target.value), idx)}
+                                        onChange={(e) => handleChange(param, parseFloat(e.target.value), idx)}
                                     />
-                                </div>
+                                </ControlGroup>
                             ))}
                         </ControlGroup>
                     );
@@ -115,11 +148,11 @@ const ParameterControls: React.FC<{ onParamChange: (params: SimulationParams) =>
                         </Label>
                         <Slider
                             type="range"
-                            min={param.includes('scale') || param === 'bounce_damping' ? 0 : 0.1}
-                            max={param.includes('scale') || param === 'bounce_damping' ? 1 : 100}
-                            step={param.includes('scale') || param === 'timeStep' ? 0.01 : 0.1}
+                            min={constraints.MIN}
+                            max={constraints.MAX}
+                            step={constraints.STEP}
                             value={value as number}
-                            onChange={(e) => handleChange(param as keyof SimulationParams, parseFloat(e.target.value))}
+                            onChange={(e) => handleChange(param, parseFloat(e.target.value))}
                         />
                     </ControlGroup>
                 );
