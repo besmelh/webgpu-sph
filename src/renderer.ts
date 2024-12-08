@@ -131,7 +131,7 @@ export class Renderer {
         //     2,
         //     radius * Math.cos(performance.now() / 1000)
         // );     
-        const eye = vec3.fromValues(5, 0, 0);    
+        const eye = vec3.fromValues(5, 2, 0);    
         const center = vec3.fromValues(0, 0, 0);
         const up = vec3.fromValues(0, 1, 0);
 
@@ -172,10 +172,10 @@ export class Renderer {
     }
 
      // Add this method to handle canvas resizing
-    //  resize() {
-    //     if (this.depthTexture) {
-    //         this.depthTexture.destroy();
-    //     }
-    //     this.createDepthBuffer();
-    // }
+     resize() {
+        if (this.depthTexture) {
+            this.depthTexture.destroy();
+        }
+        this.createDepthBuffer();
+    }
 }
