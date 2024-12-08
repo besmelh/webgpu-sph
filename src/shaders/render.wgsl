@@ -6,38 +6,67 @@ struct Camera {
 
 @binding(0) @group(0) var<uniform> camera: Camera;
 
-struct Particle {
-    position: vec4<f32>, // xyz = position, w = density
-    velocity: vec4<f32>  // xyz = velocity, w = pressure
-};
-
 struct VertexOutput {
     @builtin(position) position: vec4<f32>,
-    @location(0) density: f32,
-    @location(1) pressure: f32
+    @location(0) color: vec4<f32>,
+    @location(1) texCoord: vec2<f32>,
+    @location(2) normal: vec3<f32>
 };
 
 @vertex
-fn vertexMain(@location(0) position: vec4<f32>, @location(1) velocity: vec4<f32>) -> VertexOutput {
+fn vertexMain(
+    @location(0) quadPos: vec2<f32>,
+    @location(1) position: vec4<f32>,
+    @location(2) velocity: vec4<f32>
+) -> VertexOutput {
     var output: VertexOutput;
-    output.position = camera.projection * camera.view * camera.model * vec4<f32>(position.xyz, 1.0);
-    output.density = position.w;    // Pass density to fragment shader
-    output.pressure = velocity.w;   // Pass pressure to fragment shader
+    
+    // Particle size
+    let particleSize = 0.05;
+    
+    // Transform particle position to view space
+    let worldPos = camera.model * vec4<f32>(position.xyz, 1.0);
+    let viewPos = (camera.view * worldPos).xyz;
+    
+    // Calculate billboard position
+    let billboardPos = viewPos + vec3<f32>(quadPos.x, quadPos.y, 0.0) * particleSize;
+    
+    // Project to screen space
+    output.position = camera.projection * vec4<f32>(billboardPos, 1.0);
+    
+    // Color mapping based on density
+    let normalizedDensity = position.w / 1000.0;
+    let lowColor = vec3<f32>(0.0, 0.0, 1.0);  // Blue
+    let highColor = vec3<f32>(1.0, 0.0, 0.0); // Red
+    let color = mix(lowColor, highColor, normalizedDensity);
+    output.color = vec4<f32>(color, 1.0);
+    
+    // Pass texture coordinates for sphere shaping
+    output.texCoord = quadPos * 0.5 + 0.5;
+    
+    // Calculate normal for lighting
+    output.normal = normalize(vec3<f32>(quadPos.x, quadPos.y, 1.0));
+    
     return output;
 }
 
 @fragment
 fn fragmentMain(
-    @location(0) density: f32,
-    @location(1) pressure: f32
+    @location(0) color: vec4<f32>,
+    @location(1) texCoord: vec2<f32>,
+    @location(2) normal: vec3<f32>
 ) -> @location(0) vec4<f32> {
-    // Color mapping based on density (similar to Vulkan implementation)
-    let lowColor = vec3<f32>(0.0, 0.0, 1.0);  // Blue
-    let highColor = vec3<f32>(1.0, 0.0, 0.0); // Red
+    // Calculate distance from center for circular shape
+    let dist = length(texCoord * 2.0 - 1.0);
+    if (dist > 1.0) {
+        discard;
+    }
     
-    let normalizedDensity = density / 1000.0;
-    let color = mix(lowColor, highColor, normalizedDensity);
-    //let color = vec3<f32>(1.0, 1.0, 1.0); //white
+    // Simple lighting
+    let lightDir = normalize(vec3<f32>(0.0, 0.0, 1.0));
+    let ambient = 0.2;
+    let diffuse = max(dot(normal, lightDir), 0.0);
+    let lighting = ambient + (1.0 - ambient) * diffuse;
     
-    return vec4<f32>(color, 1.0);
+    return vec4<f32>(color.rgb * lighting, color.a);
 }

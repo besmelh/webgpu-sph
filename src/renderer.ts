@@ -6,18 +6,38 @@ export class Renderer {
     private context: GPUCanvasContext;
     private format: GPUTextureFormat;
     private pipeline!: GPURenderPipeline;
-    private vertexBuffer!: GPUBuffer;
+    // private vertexBuffer!: GPUBuffer;
     private cameraBuffer!: GPUBuffer;
     private bindGroup!: GPUBindGroup;
     private depthTexture!: GPUTexture;
     private depthTextureView!: GPUTextureView;
+    private quadBuffer!: GPUBuffer; //for quad vertices
 
     constructor(device: GPUDevice, context: GPUCanvasContext, format: GPUTextureFormat) {
         this.device = device;
         this.context = context;
         this.format = format;
+        this.createQuadBuffer();
         this.createPipeline();
         this.createDepthBuffer();
+    }
+
+    private createQuadBuffer() {
+        // Create vertices for a quad
+        const vertices = new Float32Array([
+            -1, -1,  // Bottom-left
+             1, -1,  // Bottom-right
+            -1,  1,  // Top-left
+             1,  1,  // Top-right
+        ]);
+
+        this.quadBuffer = this.device.createBuffer({
+            size: vertices.byteLength,
+            usage: GPUBufferUsage.VERTEX,
+            mappedAtCreation: true,
+        });
+        new Float32Array(this.quadBuffer.getMappedRange()).set(vertices);
+        this.quadBuffer.unmap();
     }
 
     private createDepthBuffer() {
@@ -59,21 +79,35 @@ export class Renderer {
                     code: renderShader
                 }),
                 entryPoint: 'vertexMain',
-                buffers: [{
-                    arrayStride: 32, // 8 floats * 4 bytes
-                    attributes: [
-                        {
-                            format: 'float32x4',
+                buffers: [
+                    // Quad vertices
+                    {
+                        arrayStride: 8, // 2 floats * 4 bytes
+                        stepMode: 'vertex',
+                        attributes: [{
+                            format: 'float32x2',
                             offset: 0,
                             shaderLocation: 0
-                        },
-                        {
-                            format: 'float32x4',
-                            offset: 16,
-                            shaderLocation: 1
-                        }
-                    ]
-                }]
+                        }]
+                    },
+                    // Particle data (instanced)
+                    {
+                        arrayStride: 32, // 8 floats * 4 bytes
+                        stepMode: 'instance',
+                        attributes: [
+                            {
+                                format: 'float32x4',
+                                offset: 0,
+                                shaderLocation: 1
+                            },
+                            {
+                                format: 'float32x4',
+                                offset: 16,
+                                shaderLocation: 2
+                            }
+                        ]
+                    }
+                ]
             },
             fragment: {
                 module: this.device.createShaderModule({
@@ -97,9 +131,10 @@ export class Renderer {
                 }]
             },
             primitive: {
-                topology: 'point-list',
-                cullMode: 'back'
-            },
+                topology: 'triangle-strip',
+                stripIndexFormat: 'uint32',
+                cullMode: 'none'
+            },            
             depthStencil: {
                 depthWriteEnabled: true,
                 depthCompare: 'less',
@@ -148,11 +183,11 @@ export class Renderer {
                 depthStoreOp: 'store'
             }
         });
-
         renderPass.setPipeline(this.pipeline);
         renderPass.setBindGroup(0, this.bindGroup);
-        renderPass.setVertexBuffer(0, particleBuffer);
-        renderPass.draw(8 * 1024, 1, 0, 0);
+        renderPass.setVertexBuffer(0, this.quadBuffer);
+        renderPass.setVertexBuffer(1, particleBuffer);
+        renderPass.draw(4, 8 * 1024, 0, 0); // 4 vertices per quad, NUM_PARTICLES instances
         renderPass.end();
 
         this.device.queue.submit([commandEncoder.finish()]);
