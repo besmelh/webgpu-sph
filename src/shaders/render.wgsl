@@ -21,8 +21,8 @@ struct VertexOutput {
 
 // Particle radius for metaball calculation
 const PARTICLE_RADIUS: f32 = 0.1;
-const SMOOTHING_LENGTH: f32 = 0.2;
-const THRESHOLD: f32 = 0.4;
+const SMOOTHING_LENGTH: f32 = 0.01;
+const THRESHOLD: f32 = 0.1;
 
 @vertex
 fn vertexMain(@location(0) position: vec4<f32>, @location(1) velocity: vec4<f32>) -> VertexOutput {

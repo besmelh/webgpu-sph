@@ -15,13 +15,13 @@ export const defaultSimulationParams: SimulationParams = {
     particle_mass: 0.123,
     eps: 0.01,
     bounce_damping: 0.04,
-    min_domain_bound: [-x, -x, -x, 0.0],
-    max_domain_bound: [x, x, x, 0.0]
+    min_domain_bound: [-x, -x, -x * 1.5, 0.0],
+    max_domain_bound: [x, x, x * 1.5, 0.0]
 };
 
 // Simulation constants
 export const WORKGROUP_SIZE = 64;
-export const NUM_PARTICLES = 2 * 1024;
+export const NUM_PARTICLES = 8 * 1024;
 
 // Domain configuration
 export const DOMAIN_CONFIG = {
