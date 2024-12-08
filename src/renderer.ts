@@ -114,7 +114,7 @@ export class Renderer {
         //     2,
         //     radius * Math.cos(performance.now() / 1000)
         // );     
-        const eye = vec3.fromValues(5, 0, 0);    
+        const eye = vec3.fromValues(5, 2, 0);    
         const center = vec3.fromValues(0, 0, 0);
         const up = vec3.fromValues(0, 1, 0);
 
@@ -142,7 +142,7 @@ export class Renderer {
         renderPass.setPipeline(this.pipeline);
         renderPass.setBindGroup(0, this.bindGroup);
         renderPass.setVertexBuffer(0, particleBuffer);
-        renderPass.draw(2 * 1024, 1, 0, 0); // Assuming 8192 particles
+        renderPass.draw(8 * 1024, 1, 0, 0); // Assuming 8192 particles
         renderPass.end();
 
         this.device.queue.submit([commandEncoder.finish()]);

@@ -12,7 +12,7 @@ export class SPHSimulation {
     private computePipelineForces!: GPUComputePipeline;
     private computeBindGroup!: GPUBindGroup;
     private workgroupSize = 64;
-    private numParticles = 2 * 1024;
+    private numParticles = 8 * 1024;
 
     constructor(device: GPUDevice) {
         this.device = device;
