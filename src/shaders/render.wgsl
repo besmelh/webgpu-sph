@@ -37,6 +37,7 @@ fn fragmentMain(
     
     let normalizedDensity = density / 1000.0;
     let color = mix(lowColor, highColor, normalizedDensity);
+    //let color = vec3<f32>(1.0, 1.0, 1.0); //white
     
     return vec4<f32>(color, 1.0);
 }

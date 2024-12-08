@@ -15,8 +15,8 @@ export const defaultSimulationParams: SimulationParams = {
     particle_mass: 0.123,
     eps: 0.01,
     bounce_damping: 0.04,
-    min_domain_bound: [-x, -x, -x * 1.5, 0.0],
-    max_domain_bound: [x, x, x * 1.5, 0.0]
+    min_domain_bound: [-x, -x, -x, 0.0],
+    max_domain_bound: [x, x, x, 0.0]
 };
 
 // Simulation constants
@@ -25,7 +25,7 @@ export const NUM_PARTICLES = 8 * 1024;
 
 // Domain configuration
 export const DOMAIN_CONFIG = {
-    BOX_SIZE: 0.5,
+    BOX_SIZE: 0.3,
     INITIAL_HEIGHT: 0.8,  // Initial height for particle placement
 };
 
