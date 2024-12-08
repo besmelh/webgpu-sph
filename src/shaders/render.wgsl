@@ -22,7 +22,7 @@ fn vertexMain(
     var output: VertexOutput;
     
     // Particle size
-    let particleSize = 0.05;
+    let particleSize = 0.02;
     
     // Transform particle position to view space
     let worldPos = camera.model * vec4<f32>(position.xyz, 1.0);
@@ -63,8 +63,8 @@ fn fragmentMain(
     }
     
     // Simple lighting
-    let lightDir = normalize(vec3<f32>(0.0, 0.0, 1.0));
-    let ambient = 0.2;
+    let lightDir = normalize(vec3<f32>(1.0, 1.0, 1.0));
+    let ambient = 0.5;
     let diffuse = max(dot(normal, lightDir), 0.0);
     let lighting = ambient + (1.0 - ambient) * diffuse;
     

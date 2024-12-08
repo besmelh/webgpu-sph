@@ -21,7 +21,7 @@ export const defaultSimulationParams: SimulationParams = {
 
 // Simulation constants
 export const WORKGROUP_SIZE = 64;
-export const NUM_PARTICLES = 8 * 1024;
+export const NUM_PARTICLES = 4 * 1024;
 
 // Domain configuration
 export const DOMAIN_CONFIG = {
