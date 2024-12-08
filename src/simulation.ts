@@ -12,7 +12,7 @@ export class SPHSimulation {
     private computePipelineForces!: GPUComputePipeline;
     private computeBindGroup!: GPUBindGroup;
     private workgroupSize = 64;
-    private numParticles = 8 * 1024;
+    private numParticles = 2 * 1024;
 
     constructor(device: GPUDevice) {
         this.device = device;
@@ -80,30 +80,37 @@ export class SPHSimulation {
     
          // Initialize particles data and upload
          const particleData = new Float32Array(this.numParticles * 8);
-         const boxSize = 0.5;
+
+         const boxSize = 0.5; // Reduced from 0.5 to make a tighter clump
          const particlesPerDim = Math.ceil(Math.pow(this.numParticles, 1/3));
          const spacing = boxSize * 2 / particlesPerDim;
          
          let offset = 0;
-         for (let x = 0; x < particlesPerDim && (offset/8) < this.numParticles; x++) {
-             for (let y = 0; y < particlesPerDim && (offset/8) < this.numParticles; y++) {
-                 for (let z = 0; z < particlesPerDim && (offset/8) < this.numParticles; z++) {
-                     // Position (xyz) + density (w)
-                     particleData[offset] = -boxSize + x * spacing;
-                     particleData[offset + 1] = 0.8 + y * spacing;  // Start higher up
-                     particleData[offset + 2] = -boxSize + z * spacing;
-                     particleData[offset + 3] = 0;  // density
-                     
-                     // Velocity (xyz) + pressure (w)
-                     particleData[offset + 4] = 0;
-                     particleData[offset + 5] = 0;
-                     particleData[offset + 6] = 0;
-                     particleData[offset + 7] = 0;
-                     
-                     offset += 8;
-                 }
-             }
-         }
+         // Center the cube in x and z, place it high in y
+        const centerX = 0;
+        const startY = 0.2; // Start height
+        const centerZ = 0;
+        const initialDensity = 0;
+        const initialPressure = 0;
+        for (let x = 0; x < particlesPerDim && (offset/8) < this.numParticles; x++) {
+            for (let y = 0; y < particlesPerDim && (offset/8) < this.numParticles; y++) {
+                for (let z = 0; z < particlesPerDim && (offset/8) < this.numParticles; z++) {
+                    // Position (xyz) + density (w)
+                    particleData[offset] = centerX - boxSize + x * spacing;
+                    particleData[offset + 1] = startY + y * spacing;  // Start higher up
+                    particleData[offset + 2] = centerZ - boxSize + z * spacing;
+                    particleData[offset + 3] = initialDensity;  // density
+                    
+                    // Velocity (xyz) + pressure (w)
+                    particleData[offset + 4] = 0;
+                    particleData[offset + 5] = 0;
+                    particleData[offset + 6] = 0;
+                    particleData[offset + 7] = initialPressure;
+                    
+                    offset += 8;
+                }
+            }
+        }
     
     
         // Upload particle data to GPU

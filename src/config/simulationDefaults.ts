@@ -1,20 +1,22 @@
 import { SimulationParams } from '../types/simulation';
 
+const x = 1.0;
+
 export const defaultSimulationParams: SimulationParams = {
-    scalePressure: 1.0,
+    scalePressure: 2.0,
     scaleViscosity: 1.0,
     scaleGravity: 1.0,
-    gas_constant: 0.7,
-    rest_density: 40.0,
-    timeStep: 0.05,
-    smoothing_radius: 0.28,
-    viscosity: 12.7,
+    gas_constant: 5.0,
+    rest_density: 80.0,
+    timeStep: 0.01,
+    smoothing_radius: 10.0,
+    viscosity: 80,
     gravity: 9.8,
-    particle_mass: 0.123,
+    particle_mass: 20.0,
     eps: 0.01,
-    bounce_damping: 0.004,
-    min_domain_bound: [-1.0, -1.0, -1.0, 0.0],
-    max_domain_bound: [1.0, 1.0, 1.0, 0.0]
+    bounce_damping: 0.01,
+    min_domain_bound: [-x, -x, -x, 0.0],
+    max_domain_bound: [x, x, x, 0.0]
 };
 
 // Simulation constants
