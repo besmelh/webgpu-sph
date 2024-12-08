@@ -1,6 +1,7 @@
 import { SimulationParams } from '../types/simulation';
 
-const x = 1.0;
+const innerBoundary = 1.0;  // Inner boundary size
+const outerBoundary = 3 * innerBoundary;  // Outer boundary size - 3x larger than inner
 
 export const defaultSimulationParams: SimulationParams = {
     scalePressure: 0.8, // higher makes it stabilize quicker -- too high goes outta control
@@ -15,8 +16,10 @@ export const defaultSimulationParams: SimulationParams = {
     particle_mass: 0.5, //lower falls in on clump then breaks, higher makes particles more dispersered equally
     eps: 0.01,
     bounce_damping: 0.002, //higher more bouncy
-    min_domain_bound: [-x, -x, -x, 0.0],
-    max_domain_bound: [x, x, x, 0.0]
+    min_domain_bound: [-innerBoundary, -innerBoundary, -innerBoundary, 0.0],
+    max_domain_bound: [innerBoundary, innerBoundary, innerBoundary, 0.0],
+    outer_min_bound: [-outerBoundary, -outerBoundary, -outerBoundary, 0.0],
+    outer_max_bound: [outerBoundary, outerBoundary, outerBoundary, 0.0]
 };
 
 // Simulation constants

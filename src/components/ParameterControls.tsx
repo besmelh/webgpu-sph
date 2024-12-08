@@ -4,7 +4,7 @@ import { defaultSimulationParams, PARAM_CONSTRAINTS } from '../config/simulation
 import { SimulationParams } from '../types/simulation';
 
 // Type guard to check if a parameter is a domain bound
-const isDomainBoundParam = (param: keyof SimulationParams): param is 'min_domain_bound' | 'max_domain_bound' => {
+const isDomainBoundParam = (param: keyof SimulationParams): boolean => {
     return param === 'min_domain_bound' || param === 'max_domain_bound';
 };
 
@@ -87,7 +87,7 @@ const ParameterControls: React.FC<{
         const newParams = { ...params };
         
         if (isDomainBoundParam(param) && typeof index === 'number') {
-            newParams[param][index] = value;
+            (newParams[param] as number[])[index] = value;
         } else if (!isDomainBoundParam(param)) {
             (newParams[param] as number) = value;
         }
@@ -112,7 +112,7 @@ const ParameterControls: React.FC<{
                 Reinitialize
             </Button>
             
-            {Object.entries(params).map(([paramKey, value]) => {
+            {Object.entries(params).filter(([key]) => !key.includes('outer_')).map(([paramKey, value]) => {
                 const param = paramKey as keyof SimulationParams;
                 const constraints = getParamConstraints(param);
 
@@ -121,20 +121,20 @@ const ParameterControls: React.FC<{
                         <ControlGroup key={param}>
                             <Label>{param}</Label>
                             {(value as number[]).map((v, idx) => (
-                                <ControlGroup key={`${param}-${idx}`}>
+                                <div key={`${param}-${idx}`}>
                                     <Label>
                                         {`${param}[${idx}]`}
                                         <Value>{v.toFixed(3)}</Value>
                                     </Label>
                                     <Slider
                                         type="range"
-                                        min={param === 'min_domain_bound' ? constraints.MIN : 0}
-                                        max={param === 'min_domain_bound' ? 0 : constraints.MAX}
+                                        min={param.includes('min') ? constraints.MIN : 0}
+                                        max={param.includes('max') ? constraints.MAX : 0}
                                         step={constraints.STEP}
                                         value={v}
                                         onChange={(e) => handleChange(param, parseFloat(e.target.value), idx)}
                                     />
-                                </ControlGroup>
+                                </div>
                             ))}
                         </ControlGroup>
                     );

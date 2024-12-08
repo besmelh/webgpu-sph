@@ -2,8 +2,10 @@ struct SimParams {
     scale_params: vec4<f32>,      // scalePressure, scaleViscosity, scaleGravity, gas_constant
     fluid_params: vec4<f32>,      // rest_density, timeStep, smoothing_radius, viscosity
     physics_params: vec4<f32>,    // gravity, particle_mass, eps, bounce_damping
-    min_domain_bound: vec4<f32>,
-    max_domain_bound: vec4<f32>
+    min_domain_bound: vec4<f32>,  // Inner boundary minimum
+    max_domain_bound: vec4<f32>,  // Inner boundary maximum
+    outer_min_bound: vec4<f32>,   // Outer boundary minimum
+    outer_max_bound: vec4<f32>    // Outer boundary maximum
 };
 
 // Helper function to access parameters
@@ -129,12 +131,24 @@ fn computeForces(@builtin(global_invocation_id) global_id: vec3<u32>) {
     var newVel = p_i.velocity.xyz + get_time_step(params) * acceleration;
     var newPos = p_i.position.xyz + get_time_step(params) * newVel;
 
+    // Boundary collisions - first check inner boundaries
     for (var dim = 0; dim < 3; dim++) {
         if (newPos[dim] < params.min_domain_bound[dim]) {
             newPos[dim] = params.min_domain_bound[dim];
             newVel[dim] *= -get_bounce_damping(params);
         } else if (newPos[dim] > params.max_domain_bound[dim]) {
             newPos[dim] = params.max_domain_bound[dim];
+            newVel[dim] *= -get_bounce_damping(params);
+        }
+    }
+
+    // Then check outer boundaries
+    for (var dim = 0; dim < 3; dim++) {
+        if (newPos[dim] < params.outer_min_bound[dim]) {
+            newPos[dim] = params.outer_min_bound[dim];
+            newVel[dim] *= -get_bounce_damping(params);
+        } else if (newPos[dim] > params.outer_max_bound[dim]) {
+            newPos[dim] = params.outer_max_bound[dim];
             newVel[dim] *= -get_bounce_damping(params);
         }
     }

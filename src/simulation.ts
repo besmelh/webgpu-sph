@@ -17,7 +17,7 @@ export class SPHSimulation {
     constructor(device: GPUDevice) {
         this.device = device;
         // Increased size to match the full parameter struct
-        const paramBufferSize = 80;
+        const paramBufferSize = 112; // 28 floats * 4 bytes
         
         this.parameterBuffer = device.createBuffer({
             size: paramBufferSize,
@@ -188,7 +188,9 @@ export class SPHSimulation {
             
             // Domain bounds are already vec4s
             ...params.min_domain_bound,
-            ...params.max_domain_bound
+            ...params.max_domain_bound,
+            ...params.outer_min_bound,
+            ...params.outer_max_bound
         ]);
         
         this.device.queue.writeBuffer(this.parameterBuffer, 0, paramData);

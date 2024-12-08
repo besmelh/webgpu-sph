@@ -14,6 +14,8 @@ export interface SimulationParams {
     bounce_damping: number;
     min_domain_bound: [number, number, number, number];
     max_domain_bound: [number, number, number, number];
+    outer_min_bound: [number, number, number, number];
+    outer_max_bound: [number, number, number, number];
 }
 
 export interface Particle {
