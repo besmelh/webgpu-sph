@@ -81,14 +81,14 @@ export class SPHSimulation {
          // Initialize particles data and upload
          const particleData = new Float32Array(this.numParticles * 8);
 
-         const boxSize = 0.5; // Reduced from 0.5 to make a tighter clump
+         const boxSize = 0.3; // Reduced from 0.5 to make a tighter clump
          const particlesPerDim = Math.ceil(Math.pow(this.numParticles, 1/3));
          const spacing = boxSize * 2 / particlesPerDim;
          
          let offset = 0;
          // Center the cube in x and z, place it high in y
         const centerX = 0;
-        const startY = 0.2; // Start height
+        const startY = 0.8; // Start height
         const centerZ = 0;
         const initialDensity = 0;
         const initialPressure = 0;
