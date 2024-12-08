@@ -1,4 +1,6 @@
 import { mat4, vec3 } from 'gl-matrix'; 
+import renderShader from './shaders/render.wgsl';
+
 
 export class Renderer {
     private device: GPUDevice;
@@ -8,14 +10,32 @@ export class Renderer {
     private vertexBuffer!: GPUBuffer;
     private cameraBuffer!: GPUBuffer;
     private bindGroup!: GPUBindGroup;
+    private depthTexture!: GPUTexture;
+    private depthTextureView!: GPUTextureView;
+
 
     constructor(device: GPUDevice, context: GPUCanvasContext, format: GPUTextureFormat) {
         this.device = device;
         this.context = context;
         this.format = format;
         this.createPipeline();
+        this.createDepthBuffer();
     }
 
+    private createDepthBuffer() {
+        this.depthTexture = this.device.createTexture({
+            size: {
+                width: this.context.canvas.width,
+                height: this.context.canvas.height,
+                depthOrArrayLayers: 1
+            },
+            format: 'depth24plus',
+            usage: GPUTextureUsage.RENDER_ATTACHMENT
+        });
+        this.depthTextureView = this.depthTexture.createView();
+    }
+
+    
     private createPipeline() {
         // Create camera uniform buffer
         this.cameraBuffer = this.device.createBuffer({
@@ -40,29 +60,8 @@ export class Renderer {
             }),
             vertex: {
                 module: this.device.createShaderModule({
-                    code: `
-                        struct Camera {
-                            model: mat4x4<f32>,
-                            view: mat4x4<f32>,
-                            projection: mat4x4<f32>
-                        };
-                        @binding(0) @group(0) var<uniform> camera: Camera;
-                        
-                        struct VertexOutput {
-                            @builtin(position) position: vec4<f32>,
-                            @location(0) color: vec4<f32>
-                        };
-                        
-                        @vertex
-                        fn main(@location(0) position: vec4<f32>) -> VertexOutput {
-                            var output: VertexOutput;
-                            output.position = camera.projection * camera.view * camera.model * vec4<f32>(position.xyz, 1.0);
-                            output.color = vec4<f32>(1.0, 0.0, 0.0, 1.0);
-                            return output;
-                        }
-                    `
-                }),
-                entryPoint: 'main',
+                    code: renderShader}),
+                entryPoint: 'vertexMain',
                 buffers: [{
                     arrayStride: 32, // 8 floats * 4 bytes
                     attributes: [
@@ -70,26 +69,44 @@ export class Renderer {
                             format: 'float32x4',
                             offset: 0,
                             shaderLocation: 0
+                        },
+                        {
+                            format: 'float32x4',
+                            offset: 16,
+                            shaderLocation: 1
                         }
                     ]
                 }]
             },
             fragment: {
                 module: this.device.createShaderModule({
-                    code: `
-                        @fragment
-                        fn main(@location(0) color: vec4<f32>) -> @location(0) vec4<f32> {
-                            return color;
-                        }
-                    `
+                    code: renderShader
                 }),
-                entryPoint: 'main',
+                entryPoint: 'fragmentMain',
                 targets: [{
-                    format: this.format
+                    format: this.format,
+                    blend: {
+                        color: {
+                            srcFactor: 'src-alpha',
+                            dstFactor: 'one-minus-src-alpha',
+                            operation: 'add'
+                        },
+                        alpha: {
+                            srcFactor: 'one',
+                            dstFactor: 'one-minus-src-alpha',
+                            operation: 'add'
+                        }
+                    }
                 }]
             },
             primitive: {
-                topology: 'point-list'
+                topology: 'triangle-list',
+                cullMode: 'back'
+            },
+            depthStencil: {
+                depthWriteEnabled: true,
+                depthCompare: 'less',
+                format: 'depth24plus'
             }
         });
 
@@ -136,7 +153,13 @@ export class Renderer {
                 clearValue: { r: 0.0, g: 0.0, b: 0.0, a: 1.0 },
                 loadOp: 'clear',
                 storeOp: 'store',
-            }]
+            }],
+            depthStencilAttachment: {
+                view: this.depthTextureView,
+                depthClearValue: 1.0,
+                depthLoadOp: 'clear',
+                depthStoreOp: 'store'
+            }
         });
 
         renderPass.setPipeline(this.pipeline);
@@ -147,4 +170,12 @@ export class Renderer {
 
         this.device.queue.submit([commandEncoder.finish()]);
     }
+
+     // Add this method to handle canvas resizing
+    //  resize() {
+    //     if (this.depthTexture) {
+    //         this.depthTexture.destroy();
+    //     }
+    //     this.createDepthBuffer();
+    // }
 }
