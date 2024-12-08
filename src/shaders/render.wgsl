@@ -10,7 +10,8 @@ struct VertexOutput {
     @builtin(position) position: vec4<f32>,
     @location(0) color: vec4<f32>,
     @location(1) texCoord: vec2<f32>,
-    @location(2) normal: vec3<f32>
+    @location(2) normal: vec3<f32>,
+    @location(3) viewPos: vec3<f32>
 };
 
 @vertex
@@ -21,31 +22,29 @@ fn vertexMain(
 ) -> VertexOutput {
     var output: VertexOutput;
     
-    // Particle size
     let particleSize = 0.02;
     
-    // Transform particle position to view space
     let worldPos = camera.model * vec4<f32>(position.xyz, 1.0);
     let viewPos = (camera.view * worldPos).xyz;
     
-    // Calculate billboard position
     let billboardPos = viewPos + vec3<f32>(quadPos.x, quadPos.y, 0.0) * particleSize;
     
-    // Project to screen space
     output.position = camera.projection * vec4<f32>(billboardPos, 1.0);
+    output.viewPos = billboardPos;
     
-    // Color mapping based on density
+    // Density-based coloring
     let normalizedDensity = position.w / 1000.0;
-    let lowColor = vec3<f32>(0.0, 0.0, 1.0);  // Blue
-    let highColor = vec3<f32>(1.0, 0.0, 0.0); // Red
+    let lowColor = vec3<f32>(0.0, 0.0, 1.0);
+    let highColor = vec3<f32>(1.0, 0.0, 0.0);
     let color = mix(lowColor, highColor, normalizedDensity);
     output.color = vec4<f32>(color, 1.0);
     
-    // Pass texture coordinates for sphere shaping
     output.texCoord = quadPos * 0.5 + 0.5;
     
-    // Calculate normal for lighting
-    output.normal = normalize(vec3<f32>(quadPos.x, quadPos.y, 1.0));
+    // Calculate spherical normal
+    let sphereNormal = normalize(vec3<f32>(quadPos.x, quadPos.y, 
+        sqrt(max(1.0 - quadPos.x * quadPos.x - quadPos.y * quadPos.y, 0.0))));
+    output.normal = sphereNormal;
     
     return output;
 }
@@ -54,19 +53,43 @@ fn vertexMain(
 fn fragmentMain(
     @location(0) color: vec4<f32>,
     @location(1) texCoord: vec2<f32>,
-    @location(2) normal: vec3<f32>
+    @location(2) normal: vec3<f32>,
+    @location(3) viewPos: vec3<f32>
 ) -> @location(0) vec4<f32> {
-    // Calculate distance from center for circular shape
+    // Discard fragments outside circle
     let dist = length(texCoord * 2.0 - 1.0);
     if (dist > 1.0) {
         discard;
     }
-    
-    // Simple lighting
-    let lightDir = normalize(vec3<f32>(1.0, 1.0, 1.0));
+
+    // Material properties
     let ambient = 0.5;
-    let diffuse = max(dot(normal, lightDir), 0.0);
-    let lighting = ambient + (1.0 - ambient) * diffuse;
+    let diffuseStrength = 0.6;
+    let specularStrength = 0.4;
+    let shininess = 32.0;
     
-    return vec4<f32>(color.rgb * lighting, color.a);
+    // Light properties
+    let lightPos = vec3<f32>(10.0, 10.0, 10.0);
+    let lightColor = vec3<f32>(1.0, 1.0, 1.0);
+    
+    // Calculate lighting vectors
+    let lightDir = normalize(lightPos - viewPos);
+    let viewDir = normalize(-viewPos);
+    let reflectDir = reflect(-lightDir, normal);
+    
+    // Ambient
+    let ambientColor = ambient * lightColor;
+    
+    // Diffuse
+    let diffuseFactor = max(dot(normal, lightDir), 0.0);
+    let diffuseColor = diffuseStrength * diffuseFactor * lightColor;
+    
+    // Specular
+    let specularFactor = pow(max(dot(viewDir, reflectDir), 0.0), shininess);
+    let specularColor = specularStrength * specularFactor * lightColor;
+    
+    // Combine lighting
+    let finalColor = (ambientColor + diffuseColor + specularColor) * color.rgb;
+    
+    return vec4<f32>(finalColor, color.a);
 }
