@@ -165,8 +165,13 @@ export class Renderer {
         const bindGroupLayout = this.device.createBindGroupLayout({
             entries: [
                 {
-                    binding: 2,
-                    visibility: GPUShaderStage.VERTEX,
+                    binding: 0,
+                    visibility: GPUShaderStage.VERTEX | GPUShaderStage.FRAGMENT,
+                    buffer: { type: 'uniform' }
+                },
+                {
+                    binding: 1, // Changed from 2 to 1
+                    visibility: GPUShaderStage.VERTEX | GPUShaderStage.FRAGMENT,
                     buffer: { 
                         type: 'read-only-storage',
                         hasDynamicOffset: false,
@@ -175,7 +180,7 @@ export class Renderer {
                 }
             ]
         });
-    
+
         this.surfacePipeline = this.device.createRenderPipeline({
             layout: this.device.createPipelineLayout({
                 bindGroupLayouts: [bindGroupLayout]
@@ -187,24 +192,13 @@ export class Renderer {
                 entryPoint: 'surfaceVertex',
                 buffers: [
                     {
-                        arrayStride: 12, // 3 floats * 4 bytes
+                        arrayStride: 16, // 4 floats * 4 bytes
                         stepMode: 'vertex',
                         attributes: [
                             {
                                 format: 'float32x3',
                                 offset: 0,
                                 shaderLocation: 0
-                            }
-                        ]
-                    },
-                    {
-                        arrayStride: 12, // 3 floats * 4 bytes
-                        stepMode: 'vertex',
-                        attributes: [
-                            {
-                                format: 'float32x3',
-                                offset: 0,
-                                shaderLocation: 1
                             }
                         ]
                     }
@@ -245,6 +239,7 @@ export class Renderer {
         const commandEncoder = this.device.createCommandEncoder();
         const textureView = this.context.getCurrentTexture().createView();
 
+
         const renderPass = commandEncoder.beginRenderPass({
             colorAttachments: [{
                 view: textureView,
@@ -259,16 +254,42 @@ export class Renderer {
                 depthStoreOp: 'store'
             }
         });
+
+        console.log('Surface buffer size:', surfaceBuffer.size);
+        
         renderPass.setPipeline(this.pipeline);
         renderPass.setBindGroup(0, this.bindGroup);
         renderPass.setVertexBuffer(0, this.quadBuffer);
         renderPass.setVertexBuffer(1, particleBuffer);
         renderPass.draw(4, 4 * 1024, 0, 0); // 4 vertices per quad, NUM_PARTICLES instances
 
+        this.surfaceBindGroup = this.device.createBindGroup({
+            layout: this.surfacePipeline.getBindGroupLayout(0),
+            entries: [
+                {
+                    binding: 0,
+                    resource: { buffer: this.cameraBuffer }
+                },
+                {
+                    binding: 1, 
+                    resource: { buffer: surfaceBuffer }
+                }
+            ]
+        });
+
+        // Calculate number of vertices from buffer size, accounting for the count at the start
+        const numVertices = (surfaceBuffer.size - 16) / 12; // (buffer size - 4 floats) / (3 floats per vertex * 4 bytes per float)
+        console.log('Drawing surface with vertices:', numVertices);
+        console.log('Surface buffer size:', surfaceBuffer.size);
+
         renderPass.setPipeline(this.surfacePipeline);
-        renderPass.setBindGroup(2, this.surfaceBindGroup);
-        renderPass.setVertexBuffer(0, surfaceBuffer);
-        renderPass.draw(surfaceBuffer.size / 12, 1, 0, 0);
+        renderPass.setBindGroup(0, this.surfaceBindGroup);
+        renderPass.setVertexBuffer(0, surfaceBuffer, 16); // Offset by 16 bytes to skip the vertex count
+        // renderPass.draw(surfaceBuffer.size / 12, 1, 0, 0);
+
+
+        
+        renderPass.draw(numVertices, 1, 0, 0);
 
         renderPass.end();
 

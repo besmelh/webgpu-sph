@@ -52,11 +52,11 @@ export class SPHSimulation {
             usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
         });
 
-        this.surfaceBuffer = device.createBuffer({
-            size: this.gridResolution * this.gridResolution * this.gridResolution * 4 * 4, // Float32 * 4 components
-            usage: GPUBufferUsage.STORAGE | GPUBufferUsage.VERTEX | GPUBufferUsage.COPY_DST,
-            mappedAtCreation: true
-        });
+        // this.surfaceBuffer = device.createBuffer({
+        //     size: this.gridResolution * this.gridResolution * this.gridResolution * 4 * 4, // Float32 * 4 components
+        //     usage: GPUBufferUsage.STORAGE | GPUBufferUsage.VERTEX | GPUBufferUsage.COPY_DST | GPUBufferUsage.COPY_SRC, 
+        //     mappedAtCreation: true
+        // });
         
         this.initializeBuffers();
         this.createPipelines();
@@ -148,7 +148,28 @@ export class SPHSimulation {
     
     
         // Upload particle data to GPU
-        this.device.queue.writeBuffer(this.particleBuffer, 0, particleData);
+        // this.device.queue.writeBuffer(this.particleBuffer, 0, particleData);
+
+            // Initialize surface buffer with a simple triangle for testing
+    // Create and initialize surface buffer
+    const initialSurfaceData = new Float32Array([
+        3, 0, 0, 0,  // Vertex count (3 vertices)
+        // Simple triangle for testing
+        -0.5, -0.5, 0.0,  // vertex 1
+        0.5, -0.5, 0.0,   // vertex 2
+        0.0, 0.5, 0.0     // vertex 3
+    ]);
+
+    this.surfaceBuffer = this.device.createBuffer({
+        size: initialSurfaceData.byteLength,
+        usage: GPUBufferUsage.STORAGE | GPUBufferUsage.VERTEX | GPUBufferUsage.COPY_DST | GPUBufferUsage.COPY_SRC,
+        mappedAtCreation: true,
+    });
+
+
+    // Write initial data and unmap
+    new Float32Array(this.surfaceBuffer.getMappedRange()).set(initialSurfaceData);
+    this.surfaceBuffer.unmap();
     
         // // Create and initialize simulation parameters buffer
         // this.parameterBuffer = this.device.createBuffer({
@@ -228,7 +249,7 @@ export class SPHSimulation {
         this.device.queue.writeBuffer(this.parameterBuffer, 0, paramData);
     }
 
-    simulate(): GPUCommandBuffer {
+    async simulate(): Promise<GPUCommandBuffer> {
         const commandEncoder = this.device.createCommandEncoder();
         
         // Density pass
@@ -246,7 +267,7 @@ export class SPHSimulation {
         forcesPass.end();
 
         // Generate and update surface mesh
-        const surfaceData = this.generateSurfaceMesh();
+        const surfaceData = await this.generateSurfaceMesh();
         this.device.queue.writeBuffer(this.surfaceBuffer, 0, surfaceData);
 
         return commandEncoder.finish();
@@ -262,42 +283,65 @@ export class SPHSimulation {
 
     async generateSurfaceMesh(): Promise<Float32Array> {
         const vertices: number[] = [];
-        const normals: number[] = [];
         const cellSize = this.gridSize / this.gridResolution;
         
+        // Add debug logging
+        console.log('Generating surface mesh');
+        console.log('Grid size:', this.gridSize);
+        console.log('Cell size:', cellSize);
+
         // Create 3D grid
-        for (let x = 0; x < this.gridResolution - 1; x++) {
-            for (let y = 0; y < this.gridResolution - 1; y++) {
-                for (let z = 0; z < this.gridResolution - 1; z++) {
-                    const cell: GridCell = {
-                        corners: [
-                            vec3.fromValues(x * cellSize, y * cellSize, z * cellSize),
-                            vec3.fromValues((x + 1) * cellSize, y * cellSize, z * cellSize),
-                            vec3.fromValues((x + 1) * cellSize, y * cellSize, (z + 1) * cellSize),
-                            vec3.fromValues(x * cellSize, y * cellSize, (z + 1) * cellSize),
-                            vec3.fromValues(x * cellSize, (y + 1) * cellSize, z * cellSize),
-                            vec3.fromValues((x + 1) * cellSize, (y + 1) * cellSize, z * cellSize),
-                            vec3.fromValues((x + 1) * cellSize, (y + 1) * cellSize, (z + 1) * cellSize),
-                            vec3.fromValues(x * cellSize, (y + 1) * cellSize, (z + 1) * cellSize),
-                        ],
-                        values: new Array(8).fill(0)
-                    };
+        // for (let x = 0; x < this.gridResolution - 1; x++) {
+        //     for (let y = 0; y < this.gridResolution - 1; y++) {
+        //         for (let z = 0; z < this.gridResolution - 1; z++) {
+        //             const cell: GridCell = {
+        //                 corners: [
+        //                     vec3.fromValues(x * cellSize, y * cellSize, z * cellSize),
+        //                     vec3.fromValues((x + 1) * cellSize, y * cellSize, z * cellSize),
+        //                     vec3.fromValues((x + 1) * cellSize, y * cellSize, (z + 1) * cellSize),
+        //                     vec3.fromValues(x * cellSize, y * cellSize, (z + 1) * cellSize),
+        //                     vec3.fromValues(x * cellSize, (y + 1) * cellSize, z * cellSize),
+        //                     vec3.fromValues((x + 1) * cellSize, (y + 1) * cellSize, z * cellSize),
+        //                     vec3.fromValues((x + 1) * cellSize, (y + 1) * cellSize, (z + 1) * cellSize),
+        //                     vec3.fromValues(x * cellSize, (y + 1) * cellSize, (z + 1) * cellSize),
+        //                 ],
+        //                 values: new Array(8).fill(0)
+        //             };
 
-                    // Calculate field values at each corner
-                    for (let i = 0; i < 8; i++) {
-                        cell.values[i] = await calculateFieldValue(cell.corners[i], this.getParticlePositions.bind(this), this.simulationParams.smoothing_radius);
-                    }
+        //             // Calculate field values at each corner
+        //             for (let i = 0; i < 8; i++) {
+        //                 cell.values[i] = await calculateFieldValue(cell.corners[i], this.getParticlePositions.bind(this), this.simulationParams.smoothing_radius);
+        //             }
 
-                    // Generate triangles for this cell
-                    this.marchCell(cell, vertices);
-                }
-            }
-        }
+        //             // Generate triangles for this cell
+        //             this.marchCell(cell, vertices);
+        //         }
+        //     }
+        // }
 
-        const surfaceData = new Float32Array(4 + vertices.length + normals.length);
-        surfaceData[0] = vertices.length / 3; // numVertices
-        surfaceData.set(vertices, 4);
-        surfaceData.set(normals, 4 + vertices.length);
+        vertices.push(
+            -0.5, -0.5, 0.0,  // vertex 1
+            0.5, -0.5, 0.0,   // vertex 2
+            0.0, 0.5, 0.0     // vertex 3
+        );
+    
+
+        // const surfaceData = new Float32Array(4 + vertices.length);
+        // surfaceData[0] = vertices.length / 3; // numVertices
+        // surfaceData.set(vertices, 4);
+
+            // Create surface data with vertex count header
+    const surfaceData = new Float32Array(4 + vertices.length);
+    surfaceData[0] = vertices.length / 3; // Number of vertices
+    surfaceData[1] = 0; // Padding
+    surfaceData[2] = 0; // Padding
+    surfaceData[3] = 0; // Padding
+    surfaceData.set(vertices, 4);
+
+            // Add debug logging
+    console.log('Generated vertices:', vertices.length / 3);
+    console.log('First few vertices:', vertices.slice(0, 9));
+
         return surfaceData;
         // return new Float32Array(vertices);
     }
@@ -349,6 +393,13 @@ export class SPHSimulation {
         const stagingBuffer = this.device.createBuffer({
             size: particleData.byteLength,
             usage: GPUBufferUsage.MAP_READ | GPUBufferUsage.COPY_DST,
+        });
+
+        // Update particleBuffer creation to include COPY_SRC
+        const particleBufferSize = this.numParticles * 2 * 4 * 4; // numParticles * 2 vec4s * 4 components * 4 bytes
+        this.particleBuffer = this.device.createBuffer({
+            size: particleBufferSize,
+            usage: GPUBufferUsage.STORAGE | GPUBufferUsage.VERTEX | GPUBufferUsage.COPY_DST | GPUBufferUsage.COPY_SRC,
         });
         
         // Copy data from the particle buffer to the staging buffer

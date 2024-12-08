@@ -95,16 +95,20 @@ class WebGPUApp {
     
     // }
 
-    render = () => {
-        // Run simulation step
-        const commandBuffer = this.simulation.simulate();
-        this.device.queue.submit([commandBuffer]);
-
-        // Render particles
-        this.renderer.render(this.simulation.getParticleBuffer(), this.simulation.getSurfaceBuffer());
-
-        // Request next frame
-        this.animationFrameId = requestAnimationFrame(this.render);
+    render = async () => {
+        try {
+            // Run simulation step
+            const commandBuffer = await this.simulation.simulate();
+            this.device.queue.submit([commandBuffer]);
+    
+            // Render particles
+            this.renderer.render(this.simulation.getParticleBuffer(), this.simulation.getSurfaceBuffer());
+    
+            // Request next frame
+            this.animationFrameId = requestAnimationFrame(this.render);
+        } catch (error) {
+            console.error("Render error:", error);
+        }
     }
 
     start() {

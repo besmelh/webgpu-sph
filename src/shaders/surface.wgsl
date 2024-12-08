@@ -1,3 +1,12 @@
+
+struct Camera {
+    model: mat4x4<f32>,
+    view: mat4x4<f32>,
+    projection: mat4x4<f32>
+};
+
+@group(0) @binding(0) var<uniform> camera: Camera;
+
 // Constants and helper functions
 const METABALL_THRESHOLD: f32 = 1.0;
 const SMOOTHING_RADIUS: f32 = 0.1;
@@ -14,11 +23,10 @@ fn calculateField(particlePos: vec3<f32>, samplePos: vec3<f32>) -> f32 {
 
 struct Surface {
     numVertices: u32,
-    positions: array<vec4<f32>>,
-    normals: array<vec3<f32>>
+    positions: array<vec4<f32>>
 }
 
-@group(0) @binding(2) var<storage> surfaceData: Surface;
+@group(0) @binding(1) var<storage> surfaceData: Surface; 
 
 struct VertexOutput {
     @builtin(position) position: vec4<f32>,
@@ -30,14 +38,17 @@ struct VertexOutput {
 @vertex
 fn surfaceVertex(
     @location(0) position: vec3<f32>,
-    @location(1) normal: vec3<f32>
 ) -> VertexOutput {
     var output: VertexOutput;
     
     let worldPos = camera.model * vec4<f32>(position, 1.0);
     output.position = camera.projection * camera.view * worldPos;
     output.worldPos = worldPos.xyz;
+
+    // Calculate the normal based on the position
+    let normal = normalize(position.xyz);
     output.normal = (camera.model * vec4<f32>(normal, 0.0)).xyz;
+    
     output.depth = output.position.z;
     
     return output;
@@ -57,6 +68,7 @@ fn surfaceFragment(
     let fresnelBase = 0.02;
     let fresnelPower = 5.0;
     let roughness = 0.1;
+    let ambient = 0.2;  // Add ambient light intensity
     
     // Lighting setup
     let lightPos = vec3<f32>(10.0, 10.0, 10.0);
@@ -72,7 +84,7 @@ fn surfaceFragment(
     // Diffuse contribution
     let diffuse = max(dot(N, L), 0.0);
     
-    // Combine lighting
+    // Combine lighting with properly defined ambient term
     let lighting = vec3<f32>(
         ambient * waterColor +
         diffuse * waterColor * 0.6 +
