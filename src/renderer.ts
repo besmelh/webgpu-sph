@@ -1,5 +1,6 @@
 import { mat4, vec3 } from 'gl-matrix'; 
 import renderShader from './shaders/render.wgsl';
+import surfaceShader from './shaders/surface.wgsl';
 
 export class Renderer {
     private device: GPUDevice;
@@ -12,6 +13,12 @@ export class Renderer {
     private depthTexture!: GPUTexture;
     private depthTextureView!: GPUTextureView;
     private quadBuffer!: GPUBuffer; //for quad vertices
+    private surfaceBuffer!: GPUBuffer;
+    private surfaceBindGroup!: GPUBindGroup;
+    private surfacePipeline!: GPURenderPipeline;
+
+    private gridResolution = 32;
+
 
     constructor(device: GPUDevice, context: GPUCanvasContext, format: GPUTextureFormat) {
         this.device = device;
@@ -19,6 +26,7 @@ export class Renderer {
         this.format = format;
         this.createQuadBuffer();
         this.createPipeline();
+        this.createSurfacePipeline();
         this.createDepthBuffer();
     }
 
@@ -153,7 +161,75 @@ export class Renderer {
         });
     }
 
-    render(particleBuffer: GPUBuffer) {
+    private createSurfacePipeline() {
+        const bindGroupLayout = this.device.createBindGroupLayout({
+            entries: [
+                {
+                    binding: 2,
+                    visibility: GPUShaderStage.VERTEX,
+                    buffer: { 
+                        type: 'read-only-storage',
+                        hasDynamicOffset: false,
+                        minBindingSize: 4 * 4 + 4 * 3 * this.gridResolution * this.gridResolution * this.gridResolution
+                    }
+                }
+            ]
+        });
+    
+        this.surfacePipeline = this.device.createRenderPipeline({
+            layout: this.device.createPipelineLayout({
+                bindGroupLayouts: [bindGroupLayout]
+            }),
+            vertex: {
+                module: this.device.createShaderModule({
+                    code: surfaceShader
+                }),
+                entryPoint: 'surfaceVertex',
+                buffers: [
+                    {
+                        arrayStride: 12, // 3 floats * 4 bytes
+                        stepMode: 'vertex',
+                        attributes: [
+                            {
+                                format: 'float32x3',
+                                offset: 0,
+                                shaderLocation: 0
+                            }
+                        ]
+                    },
+                    {
+                        arrayStride: 12, // 3 floats * 4 bytes
+                        stepMode: 'vertex',
+                        attributes: [
+                            {
+                                format: 'float32x3',
+                                offset: 0,
+                                shaderLocation: 1
+                            }
+                        ]
+                    }
+                ]
+            },
+            fragment: {
+                module: this.device.createShaderModule({
+                    code: surfaceShader
+                }),
+                entryPoint: 'surfaceFragment',
+                targets: [{ format: this.format }]
+            },
+            primitive: {
+                topology: 'triangle-list',
+                cullMode: 'back'
+            },
+            depthStencil: {
+                depthWriteEnabled: true,
+                depthCompare: 'less',
+                format: 'depth24plus'
+            }
+        });
+    }
+
+    render(particleBuffer: GPUBuffer, surfaceBuffer: GPUBuffer) {
         const eye = vec3.fromValues(5, 2, 0);    
         const center = vec3.fromValues(0, 0, 0);
         const up = vec3.fromValues(0, 1, 0);
@@ -188,6 +264,12 @@ export class Renderer {
         renderPass.setVertexBuffer(0, this.quadBuffer);
         renderPass.setVertexBuffer(1, particleBuffer);
         renderPass.draw(4, 4 * 1024, 0, 0); // 4 vertices per quad, NUM_PARTICLES instances
+
+        renderPass.setPipeline(this.surfacePipeline);
+        renderPass.setBindGroup(2, this.surfaceBindGroup);
+        renderPass.setVertexBuffer(0, surfaceBuffer);
+        renderPass.draw(surfaceBuffer.size / 12, 1, 0, 0);
+
         renderPass.end();
 
         this.device.queue.submit([commandEncoder.finish()]);

@@ -101,7 +101,7 @@ class WebGPUApp {
         this.device.queue.submit([commandBuffer]);
 
         // Render particles
-        this.renderer.render(this.simulation.getParticleBuffer());
+        this.renderer.render(this.simulation.getParticleBuffer(), this.simulation.getSurfaceBuffer());
 
         // Request next frame
         this.animationFrameId = requestAnimationFrame(this.render);

@@ -1,6 +1,27 @@
 import computeShader from './shaders/compute.wgsl';
 import { SimulationParams, Particle } from './types/simulation';
+import { vec3 } from 'gl-matrix';
+import {defaultSimulationParams} from './config/simulationDefaults';
 
+interface GridCell {
+    corners: vec3[];
+    values: number[];
+}
+
+
+async function calculateFieldValue(point: vec3, getParticlePositions: () => Promise<vec3[]>, h: number): Promise<number> {
+    let fieldValue = 0;
+    const particles = await getParticlePositions();
+
+    for (const particle of particles) {
+        const dist = vec3.distance(point as vec3, particle as vec3);
+        if (dist < h) {
+            fieldValue += (1 - (dist * dist) / (h * h)) * (1 - (dist * dist) / (h * h)) * (1 - (dist * dist) / (h * h));
+        }
+    }
+
+    return fieldValue;
+}
 
 export class SPHSimulation {
     private device: GPUDevice;
@@ -14,14 +35,27 @@ export class SPHSimulation {
     private workgroupSize = 64;
     private numParticles = 4 * 1024;
 
+    // for surface mesh
+    private simulationParams!: SimulationParams;
+    private gridResolution = 32;
+    private gridSize = 2.0; // Size of domain
+    private surfaceBuffer!: GPUBuffer;
+
     constructor(device: GPUDevice) {
         this.device = device;
+        this.simulationParams = defaultSimulationParams;
         // Increased size to match the full parameter struct
         const paramBufferSize = 80;
         
         this.parameterBuffer = device.createBuffer({
             size: paramBufferSize,
             usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
+        });
+
+        this.surfaceBuffer = device.createBuffer({
+            size: this.gridResolution * this.gridResolution * this.gridResolution * 4 * 4, // Float32 * 4 components
+            usage: GPUBufferUsage.STORAGE | GPUBufferUsage.VERTEX | GPUBufferUsage.COPY_DST,
+            mappedAtCreation: true
         });
         
         this.initializeBuffers();
@@ -211,10 +245,136 @@ export class SPHSimulation {
         forcesPass.dispatchWorkgroups(Math.ceil(this.numParticles / this.workgroupSize));
         forcesPass.end();
 
+        // Generate and update surface mesh
+        const surfaceData = this.generateSurfaceMesh();
+        this.device.queue.writeBuffer(this.surfaceBuffer, 0, surfaceData);
+
         return commandEncoder.finish();
     }
 
     getParticleBuffer(): GPUBuffer {
         return this.particleBuffer;
     }
+
+    getSurfaceBuffer(): GPUBuffer {
+        return this.surfaceBuffer;
+    }
+
+    async generateSurfaceMesh(): Promise<Float32Array> {
+        const vertices: number[] = [];
+        const normals: number[] = [];
+        const cellSize = this.gridSize / this.gridResolution;
+        
+        // Create 3D grid
+        for (let x = 0; x < this.gridResolution - 1; x++) {
+            for (let y = 0; y < this.gridResolution - 1; y++) {
+                for (let z = 0; z < this.gridResolution - 1; z++) {
+                    const cell: GridCell = {
+                        corners: [
+                            vec3.fromValues(x * cellSize, y * cellSize, z * cellSize),
+                            vec3.fromValues((x + 1) * cellSize, y * cellSize, z * cellSize),
+                            vec3.fromValues((x + 1) * cellSize, y * cellSize, (z + 1) * cellSize),
+                            vec3.fromValues(x * cellSize, y * cellSize, (z + 1) * cellSize),
+                            vec3.fromValues(x * cellSize, (y + 1) * cellSize, z * cellSize),
+                            vec3.fromValues((x + 1) * cellSize, (y + 1) * cellSize, z * cellSize),
+                            vec3.fromValues((x + 1) * cellSize, (y + 1) * cellSize, (z + 1) * cellSize),
+                            vec3.fromValues(x * cellSize, (y + 1) * cellSize, (z + 1) * cellSize),
+                        ],
+                        values: new Array(8).fill(0)
+                    };
+
+                    // Calculate field values at each corner
+                    for (let i = 0; i < 8; i++) {
+                        cell.values[i] = await calculateFieldValue(cell.corners[i], this.getParticlePositions.bind(this), this.simulationParams.smoothing_radius);
+                    }
+
+                    // Generate triangles for this cell
+                    this.marchCell(cell, vertices);
+                }
+            }
+        }
+
+        const surfaceData = new Float32Array(4 + vertices.length + normals.length);
+        surfaceData[0] = vertices.length / 3; // numVertices
+        surfaceData.set(vertices, 4);
+        surfaceData.set(normals, 4 + vertices.length);
+        return surfaceData;
+        // return new Float32Array(vertices);
+    }
+
+    // private calculateFieldValue(point: vec3): number {
+    //     let fieldValue = 0;
+    //     const particles = await this.getParticlePositions();
+    //     const h = this.simulationParams.smoothing_radius;
+
+    //     for (const particle of particles) {
+    //         const dist = vec3.distance(point as vec3, particle as vec3);
+    //         if (dist < h) {
+    //             fieldValue += (1 - (dist * dist) / (h * h)) * (1 - (dist * dist) / (h * h)) * (1 - (dist * dist) / (h * h));
+    //         }
+    //     }
+
+    //     return fieldValue;
+    // }
+
+    private marchCell(cell: GridCell, vertices: number[]) {
+        const threshold = 1.0;
+        let cubeIndex = 0;
+
+        // Determine cube index based on field values
+        for (let i = 0; i < 8; i++) {
+            if (cell.values[i] > threshold) {
+                cubeIndex |= 1 << i;
+            }
+        }
+
+        // Generate vertices using marching cubes tables
+        // This is a simplified version - you'll need to add the full tables
+        if (cubeIndex !== 0 && cubeIndex !== 255) {
+            // Add interpolated vertices based on the cube index
+            // This is where you'd use the edge table and triangle table
+            // For now, just add a simple triangle
+            vertices.push(
+                cell.corners[0][0], cell.corners[0][1], cell.corners[0][2],
+                cell.corners[1][0], cell.corners[1][1], cell.corners[1][2],
+                cell.corners[2][0], cell.corners[2][1], cell.corners[2][2]
+            );
+        }
+    }
+
+    private async getParticlePositions(): Promise<vec3[]> {
+        const particleData = new Float32Array(this.numParticles * 8);
+        
+        // Create a staging buffer
+        const stagingBuffer = this.device.createBuffer({
+            size: particleData.byteLength,
+            usage: GPUBufferUsage.MAP_READ | GPUBufferUsage.COPY_DST,
+        });
+        
+        // Copy data from the particle buffer to the staging buffer
+        const commandEncoder = this.device.createCommandEncoder();
+        commandEncoder.copyBufferToBuffer(
+            this.particleBuffer, 0,
+            stagingBuffer, 0,
+            particleData.byteLength
+        );
+        
+        // Submit the command buffer and wait for it to complete
+        const copyCommands = commandEncoder.finish();
+        this.device.queue.submit([copyCommands]);
+        await this.device.queue.onSubmittedWorkDone();
+        
+        // Map the staging buffer to read the data
+        await stagingBuffer.mapAsync(GPUMapMode.READ);
+        const stagingData = new Float32Array(stagingBuffer.getMappedRange());
+        stagingBuffer.unmap();
+        
+        const positions: vec3[] = [];
+        for (let i = 0; i < stagingData.length; i += 8) {
+            positions.push(vec3.fromValues(stagingData[i], stagingData[i + 1], stagingData[i + 2]));
+        }
+        
+        return positions;
+    }
+
 }
