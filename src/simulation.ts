@@ -2,6 +2,12 @@ import computeShader from './shaders/compute.wgsl';
 import { SimulationParams, Particle } from './types/simulation';
 
 
+interface CursorState {
+    position: [number, number, number];
+    radius: number;
+    strength: number;
+}
+
 export class SPHSimulation {
     private device: GPUDevice;
     // private simulationParamsBuffer!: GPUBuffer;
@@ -14,10 +20,12 @@ export class SPHSimulation {
     private workgroupSize = 64;
     private numParticles = 4 * 1024;
 
+    private cursorState!: CursorState;
+
     constructor(device: GPUDevice) {
         this.device = device;
-        // Increased size to match the full parameter struct
-        const paramBufferSize = 80;
+        // 5 vec4s for original params (80 bytes) + 2 vec4s for cursor data (32 bytes) = 112 bytes total
+        const paramBufferSize = 112;  // Changed from 80 to 112
         
         this.parameterBuffer = device.createBuffer({
             size: paramBufferSize,
@@ -27,6 +35,12 @@ export class SPHSimulation {
         this.initializeBuffers();
         this.createPipelines();
         this.createBindGroups();
+
+        this.cursorState = {
+            position: [0, 0, 0],
+            radius: 0.5,
+            strength: 20.0        
+        };
     }
 
     private createBindGroups() {
@@ -188,7 +202,11 @@ export class SPHSimulation {
             
             // Domain bounds are already vec4s
             ...params.min_domain_bound,
-            ...params.max_domain_bound
+            ...params.max_domain_bound,
+
+            // Cursor data (32 bytes)
+            ...params.cursor_data,
+            ...params.cursor_force
         ]);
         
         this.device.queue.writeBuffer(this.parameterBuffer, 0, paramData);
@@ -217,4 +235,45 @@ export class SPHSimulation {
     getParticleBuffer(): GPUBuffer {
         return this.particleBuffer;
     }
+
+    // Convert screen coordinates to world space
+    private screenToWorld(screenX: number, screenY: number, canvas: HTMLCanvasElement): [number, number, number] {
+        const rect = canvas.getBoundingClientRect();
+
+        // Normalize to [-1, 1] and scale to match simulation domain
+        const x = ((screenX - rect.left) / rect.width * 2 - 1) * 1.0;  
+        const y = (1 - (screenY - rect.top) / rect.height * 2) * 1.0;  // Flip Y and scale
+        
+        // Project cursor position onto a plane at z=0
+        // This is a simplified projection - might want to use proper ray casting
+        // // Scale based on camera view (adjust these values based on your scene size)
+        // const viewScale = 2.0;
+        // const projectedX = x * viewScale;
+        // const projectedY = y * viewScale;
+        
+        // return [projectedX, projectedY, 0];
+
+        console.log('Screen to World:', { screen: [screenX, screenY], world: [x, y, 0] });
+        return [x, y, 0];
+    }
+
+    public updateCursor(screenX: number, screenY: number, isActive: boolean, canvas: HTMLCanvasElement) {
+        const worldPos = this.screenToWorld(screenX, screenY, canvas);
+        this.cursorState.position = worldPos;
+        console.log('Cursor Update:', { worldPos, isActive }); // Debug logging
+    
+        // Update the cursor data portion of the parameter buffer
+        const cursorData = new Float32Array([
+            ...worldPos,           // x, y, z position
+            this.cursorState.radius  // radius
+        ]);
+
+        const cursorForce = new Float32Array([
+            0, 0, 0,              // unused
+            isActive ? this.cursorState.strength : 0  // strength/active flag
+        ]);
+    
+        // Offset is now 80 (original params size) and size is 32 (two vec4s)
+        this.device.queue.writeBuffer(this.parameterBuffer, 80, cursorData);
+        this.device.queue.writeBuffer(this.parameterBuffer, 96, cursorForce);    }
 }
