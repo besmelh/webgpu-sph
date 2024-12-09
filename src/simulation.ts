@@ -38,7 +38,7 @@ export class SPHSimulation {
 
         this.cursorState = {
             position: [0, 0, 0],
-            radius: 0.5,
+            radius: 0.8,
             strength: 50.0        
         };
     }
@@ -244,17 +244,25 @@ export class SPHSimulation {
         const x = ((screenX - rect.left) / rect.width * 2 - 1) * 1.0;  
         const y = (1 - (screenY - rect.top) / rect.height * 2) * 1.0;  // Flip Y and scale
         
-        // Project cursor position onto a plane at z=0
-        // This is a simplified projection - might want to use proper ray casting
-        // // Scale based on camera view (adjust these values based on your scene size)
-        // const viewScale = 2.0;
-        // const projectedX = x * viewScale;
-        // const projectedY = y * viewScale;
+        // Get the camera's view parameters (these should match your renderer.ts values)
+        const viewDistance = 5.0;  // Match the eye distance in renderer.ts
+        const fov = Math.PI / 4;   // Match the perspective FOV in renderer.ts
         
-        // return [projectedX, projectedY, 0];
-
-        console.log('Screen to World:', { screen: [screenX, screenY], world: [x, y, 0] });
-        return [x, y, 0];
+        // Calculate world space position based on camera setup
+        const aspectRatio = canvas.width / canvas.height;
+        const tanHalfFov = Math.tan(fov / 2);
+        
+        // Calculate the world space coordinates
+        const worldX = (x * aspectRatio * tanHalfFov * viewDistance);
+        const worldY = (y * tanHalfFov * viewDistance);
+        
+        // Project onto a plane at z = 0
+        const worldZ = 0;
+        
+        console.log('Screen coords:', screenX, screenY);
+        console.log('World coords:', worldX, worldY, worldZ);
+        
+        return [worldX, worldY, worldZ];
     }
 
     public updateCursor(screenX: number, screenY: number, isActive: boolean, canvas: HTMLCanvasElement) {

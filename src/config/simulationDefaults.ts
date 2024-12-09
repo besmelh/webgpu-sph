@@ -17,7 +17,7 @@ export const defaultSimulationParams: SimulationParams = {
     bounce_damping: 0.04,
     min_domain_bound: [-x, -x, -x, 0.0],
     max_domain_bound: [x, x, x, 0.0],
-    cursor_data: [0, 0, 0, 0.5],  // xyz position and radius
+    cursor_data: [0, 0, 0, 0.8],  // xyz position and radius
     cursor_force: [0, 0, 0, 50.0]  // xyz (unused) and strength/active
 };
 

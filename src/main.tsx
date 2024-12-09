@@ -121,46 +121,39 @@ class WebGPUApp {
 
     private setupMouseHandlers() {
         this.canvas.addEventListener('mousedown', (e) => {
-            console.log('Mouse down');
             this.isMouseDown = true;
             this.handleMouseMove(e);
         });
 
         this.canvas.addEventListener('mouseup', () => {
-            console.log('Mouse up');
             this.isMouseDown = false;
             this.simulation.updateCursor(0, 0, false, this.canvas);
         });
 
         this.canvas.addEventListener('mousemove', (e) => {
             if (this.isMouseDown) {
-                console.log('Mouse move');
                 this.handleMouseMove(e);
             }
         });
 
         this.canvas.addEventListener('mouseleave', () => {
-            console.log('Mouse leave');
             this.isMouseDown = false;
             this.simulation.updateCursor(0, 0, false, this.canvas);
         });
 
         // Add touch support
         this.canvas.addEventListener('touchstart', (e) => {
-            console.log('touchstart');
             e.preventDefault();
             this.isMouseDown = true;
             this.handleTouchMove(e);
         }, { passive: false });
 
         this.canvas.addEventListener('touchend', () => {
-            console.log('touchend');
             this.isMouseDown = false;
             this.simulation.updateCursor(0, 0, false, this.canvas);
         });
 
         this.canvas.addEventListener('touchmove', (e) => {
-            console.log('touchmove');
             e.preventDefault();
             if (this.isMouseDown) {
                 this.handleTouchMove(e);

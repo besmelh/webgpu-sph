@@ -90,6 +90,8 @@ fn fragmentMain(
     
     // Combine lighting
     let finalColor = (ambientColor + diffuseColor + specularColor) * color.rgb;
+
+
     
     return vec4<f32>(finalColor, color.a);
 }
