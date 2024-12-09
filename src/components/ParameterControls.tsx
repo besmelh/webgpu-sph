@@ -18,6 +18,11 @@ const isTimeStepParam = (param: keyof SimulationParams): boolean => {
     return param === 'timeStep';
 };
 
+// Add type guard for cursor parameters
+const isCursorParam = (param: keyof SimulationParams): boolean => {
+    return param === 'cursor_data' || param === 'cursor_force';
+};
+
 // Get parameter constraints based on parameter type
 const getParamConstraints = (param: keyof SimulationParams) => {
     if (isDomainBoundParam(param)) {
@@ -29,9 +34,11 @@ const getParamConstraints = (param: keyof SimulationParams) => {
     if (isTimeStepParam(param)) {
         return PARAM_CONSTRAINTS.TIME_STEP;
     }
+    if (isCursorParam(param)) {
+        return PARAM_CONSTRAINTS.CURSOR;
+    }
     return PARAM_CONSTRAINTS.GENERAL;
 };
-
 
 const StyledControlPanel = styled.div`
     position: fixed;
@@ -75,6 +82,14 @@ const Button = styled.button`
     }
 `;
 
+// Helper function to format values
+const formatValue = (value: number | number[]): string => {
+    if (Array.isArray(value)) {
+        return `[${value.map(v => v.toFixed(3)).join(', ')}]`;
+    }
+    return value.toFixed(3);
+};
+
 const ParameterControls: React.FC<{ 
     onParamChange: (params: SimulationParams) => void 
     onReset: () => void ,
@@ -104,60 +119,53 @@ const ParameterControls: React.FC<{
 
     return (
         <StyledControlPanel>
-            <h2>Simulation Parameters</h2>
-            <Button onClick={handleReset}>
-                Reset
-            </Button>
-            <Button onClick={onReinitialize}>
-                Reinitialize
-            </Button>
-            
-            {Object.entries(params).map(([paramKey, value]) => {
-                const param = paramKey as keyof SimulationParams;
-                const constraints = getParamConstraints(param);
+        {Object.entries(params).map(([paramKey, value]) => {
+            const param = paramKey as keyof SimulationParams;
+            const constraints = getParamConstraints(param);
 
-                if (isDomainBoundParam(param)) {
-                    return (
-                        <ControlGroup key={param}>
-                            <Label>{param}</Label>
-                            {(value as number[]).map((v, idx) => (
-                                <ControlGroup key={`${param}-${idx}`}>
-                                    <Label>
-                                        {`${param}[${idx}]`}
-                                        <Value>{v.toFixed(3)}</Value>
-                                    </Label>
-                                    <Slider
-                                        type="range"
-                                        min={param === 'min_domain_bound' ? constraints.MIN : 0}
-                                        max={param === 'min_domain_bound' ? 0 : constraints.MAX}
-                                        step={constraints.STEP}
-                                        value={v}
-                                        onChange={(e) => handleChange(param, parseFloat(e.target.value), idx)}
-                                    />
-                                </ControlGroup>
-                            ))}
-                        </ControlGroup>
-                    );
-                }
-
+            if (isDomainBoundParam(param)) {
                 return (
                     <ControlGroup key={param}>
-                        <Label>
-                            {param}
-                            <Value>{(value as number).toFixed(3)}</Value>
-                        </Label>
-                        <Slider
-                            type="range"
-                            min={constraints.MIN}
-                            max={constraints.MAX}
-                            step={constraints.STEP}
-                            value={value as number}
-                            onChange={(e) => handleChange(param, parseFloat(e.target.value))}
-                        />
+                        <Label>{param}</Label>
+                        {(value as number[]).map((v, idx) => (
+                            <ControlGroup key={`${param}-${idx}`}>
+                                <Label>
+                                    {`${param}[${idx}]`}
+                                    <Value>{v.toFixed(3)}</Value>
+                                </Label>
+                                <Slider
+                                    type="range"
+                                    min={param === 'min_domain_bound' ? constraints.MIN : 0}
+                                    max={param === 'max_domain_bound' ? constraints.MAX : 0}
+                                    step={constraints.STEP}
+                                    value={v}
+                                    onChange={(e) => handleChange(param, parseFloat(e.target.value), idx)}
+                                />
+                            </ControlGroup>
+                        ))}
                     </ControlGroup>
                 );
-            })}
-        </StyledControlPanel>
+            }
+
+            // For non-array parameters
+            return (
+                <ControlGroup key={param}>
+                    <Label>
+                        {param}
+                        <Value>{formatValue(value)}</Value>
+                    </Label>
+                    <Slider
+                        type="range"
+                        min={constraints.MIN}
+                        max={constraints.MAX}
+                        step={constraints.STEP}
+                        value={Array.isArray(value) ? value[0] : value}
+                        onChange={(e) => handleChange(param, parseFloat(e.target.value))}
+                    />
+                </ControlGroup>
+            );
+        })}
+    </StyledControlPanel>
     );
 };
 

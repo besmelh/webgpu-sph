@@ -18,7 +18,7 @@ export const defaultSimulationParams: SimulationParams = {
     min_domain_bound: [-x, -x, -x, 0.0],
     max_domain_bound: [x, x, x, 0.0],
     cursor_data: [0, 0, 0, 0.5],  // xyz position and radius
-    cursor_force: [0, 0, 0, 20.0]  // xyz (unused) and strength/active
+    cursor_force: [0, 0, 0, 50.0]  // xyz (unused) and strength/active
 };
 
 // Simulation constants
@@ -47,6 +47,11 @@ export const PARAM_CONSTRAINTS = {
         MIN: 0,
         MAX: 0.1,
         STEP: 0.001
+    },
+    CURSOR: {
+        MIN: 0,
+        MAX: 50,
+        STEP: 0.1
     },
     GENERAL: {
         MIN: 0.1,

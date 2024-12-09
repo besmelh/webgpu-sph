@@ -151,7 +151,7 @@ class WebGPUApp {
             e.preventDefault();
             this.isMouseDown = true;
             this.handleTouchMove(e);
-        });
+        }, { passive: false });
 
         this.canvas.addEventListener('touchend', () => {
             console.log('touchend');
@@ -165,7 +165,7 @@ class WebGPUApp {
             if (this.isMouseDown) {
                 this.handleTouchMove(e);
             }
-        });
+        }, { passive: false });
     }
 
     private handleMouseMove(e: MouseEvent) {

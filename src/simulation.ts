@@ -39,7 +39,7 @@ export class SPHSimulation {
         this.cursorState = {
             position: [0, 0, 0],
             radius: 0.5,
-            strength: 20.0        
+            strength: 50.0        
         };
     }
 
