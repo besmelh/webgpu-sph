@@ -155,7 +155,7 @@ export class Renderer {
 
     render(particleBuffer: GPUBuffer) {
         const viewDistance = 5.0;
-        // const eye = vec3.fromValues(5, 2, 0); 
+        const eye = vec3.fromValues(5, 2, 0); 
         // for camera rotation
         // const eye = vec3.fromValues(
         //     viewDistance * 2, // If you want camera rotation
@@ -163,11 +163,11 @@ export class Renderer {
         //     viewDistance * 2  // If you want camera rotation
         // );   
         const radius = 5;
-        const eye = vec3.fromValues(
-            radius * Math.sin(performance.now() / 10000),
-            2,
-            radius * Math.cos(performance.now() / 10000)
-        );    
+        // const eye = vec3.fromValues(
+        //     radius * Math.sin(performance.now() / 10000),
+        //     2,
+        //     radius * Math.cos(performance.now() / 10000)
+        // );    
         const center = vec3.fromValues(0, 0, 0);
         const up = vec3.fromValues(0, 1, 0);
 
