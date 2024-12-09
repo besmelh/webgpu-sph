@@ -1,7 +1,8 @@
 import { SimulationParams } from '../types/simulation';
 
 const x = 1.0;
-
+const cursor_rad_default = 0.8;
+const cursor_strength_default = 40;
 export const defaultSimulationParams: SimulationParams = {
     scalePressure: 1.0,
     scaleViscosity: 1.0,
@@ -17,8 +18,12 @@ export const defaultSimulationParams: SimulationParams = {
     bounce_damping: 0.04,
     min_domain_bound: [-x, -x, -x, 0.0],
     max_domain_bound: [x, x, x, 0.0],
-    cursor_data: [0, 0, 0, 0.8],  // xyz position and radius
-    cursor_force: [0, 0, 0, 50.0]  // xyz (unused) and strength/active
+
+    cursorRadius: cursor_rad_default,     // Initial cursor radius
+    cursorStrength: cursor_strength_default,  // Initial cursor strength
+
+    cursor_data: [0, 0, 0, cursor_rad_default],  // xyz position and radius
+    cursor_force: [0, 0, 0, cursor_strength_default]  // xyz (unused) and strength/active
 };
 
 // Simulation constants
@@ -49,9 +54,16 @@ export const PARAM_CONSTRAINTS = {
         STEP: 0.001
     },
     CURSOR: {
-        MIN: 0,
-        MAX: 50,
-        STEP: 0.1
+        RADIUS: {
+            MIN: 0.1,
+            MAX: 2.0,
+            STEP: 0.1
+        },
+        STRENGTH: {
+            MIN: 0,
+            MAX: 100.0,
+            STEP: 1.0
+        }
     },
     GENERAL: {
         MIN: 0.1,

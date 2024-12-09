@@ -183,6 +183,14 @@ export class SPHSimulation {
     }
 
     updateSimulationParams(params: SimulationParams) {
+        // Update cursor parameters in our cursor_data and cursor_force arrays
+        this.cursorState = {
+            position: [0, 0, 0],
+            radius: params.cursorRadius,
+            strength: params.cursorStrength,
+        };
+
+
         // Create buffer with correct alignment
         const paramData = new Float32Array([
             params.scalePressure,
@@ -205,8 +213,11 @@ export class SPHSimulation {
             ...params.max_domain_bound,
 
             // Cursor data (32 bytes)
-            ...params.cursor_data,
-            ...params.cursor_force
+            // ...params.cursor_data,
+            // ...params.cursor_force
+             // Update cursor arrays with new radius and strength
+             0, 0, 0, params.cursorRadius,        // cursor_data
+             0, 0, 0, params.cursorStrength       // cursor_force
         ]);
         
         this.device.queue.writeBuffer(this.parameterBuffer, 0, paramData);

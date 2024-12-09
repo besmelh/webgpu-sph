@@ -20,7 +20,7 @@ const isTimeStepParam = (param: keyof SimulationParams): boolean => {
 
 // Add type guard for cursor parameters
 const isCursorParam = (param: keyof SimulationParams): boolean => {
-    return param === 'cursor_data' || param === 'cursor_force';
+    return param === 'cursorRadius' || param === 'cursorStrength';
 };
 
 // Get parameter constraints based on parameter type
@@ -35,7 +35,10 @@ const getParamConstraints = (param: keyof SimulationParams) => {
         return PARAM_CONSTRAINTS.TIME_STEP;
     }
     if (isCursorParam(param)) {
-        return PARAM_CONSTRAINTS.CURSOR;
+        if (param === 'cursorRadius') {
+            return PARAM_CONSTRAINTS.CURSOR.RADIUS;
+        }
+        return PARAM_CONSTRAINTS.CURSOR.STRENGTH;
     }
     return PARAM_CONSTRAINTS.GENERAL;
 };
@@ -119,6 +122,38 @@ const ParameterControls: React.FC<{
 
     return (
         <StyledControlPanel>
+            <h2>Simulation Parameters</h2>
+            <h3>Cursor Controls</h3>
+            <ControlGroup>
+                <Label>
+                    Cursor Radius
+                    <Value>{params.cursorRadius.toFixed(2)}</Value>
+                </Label>
+                <Slider
+                    type="range"
+                    min={PARAM_CONSTRAINTS.CURSOR.RADIUS.MIN}
+                    max={PARAM_CONSTRAINTS.CURSOR.RADIUS.MAX}
+                    step={PARAM_CONSTRAINTS.CURSOR.RADIUS.STEP}
+                    value={params.cursorRadius}
+                    onChange={(e) => handleChange('cursorRadius', parseFloat(e.target.value))}
+                />
+            </ControlGroup>
+
+            <ControlGroup>
+                <Label>
+                    Cursor Strength
+                    <Value>{params.cursorStrength.toFixed(2)}</Value>
+                </Label>
+                <Slider
+                    type="range"
+                    min={PARAM_CONSTRAINTS.CURSOR.STRENGTH.MIN}
+                    max={PARAM_CONSTRAINTS.CURSOR.STRENGTH.MAX}
+                    step={PARAM_CONSTRAINTS.CURSOR.STRENGTH.STEP}
+                    value={params.cursorStrength}
+                    onChange={(e) => handleChange('cursorStrength', parseFloat(e.target.value))}
+                />
+            </ControlGroup>
+
         {Object.entries(params).map(([paramKey, value]) => {
             const param = paramKey as keyof SimulationParams;
             const constraints = getParamConstraints(param);
