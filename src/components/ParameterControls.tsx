@@ -123,6 +123,13 @@ const ParameterControls: React.FC<{
     return (
         <StyledControlPanel>
             <h2>Simulation Parameters</h2>
+            <Button onClick={handleReset} style={{marginRight: '10px'}}>
+                Reset
+            </Button>
+            <Button onClick={onReinitialize}>
+                Reinitialize
+            </Button>
+
             <h3>Cursor Controls</h3>
             <ControlGroup>
                 <Label>
