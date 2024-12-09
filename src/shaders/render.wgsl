@@ -63,7 +63,7 @@ fn fragmentMain(
     }
 
     // Material properties
-    let ambient = 0.5;
+    let ambient = 0.8;
     let diffuseStrength = 0.6;
     let specularStrength = 0.4;
     let shininess = 32.0;
