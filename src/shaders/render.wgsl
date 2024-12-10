@@ -4,16 +4,25 @@ struct Camera {
     projection: mat4x4<f32>
 };
 
-@binding(0) @group(0) var<uniform> camera: Camera;
+@group(0) @binding(0) var<uniform> camera: Camera;
+@group(0) @binding(1) var accumTexture: texture_2d<f32>;
+@group(0) @binding(2) var texSampler: sampler;
 
 struct VertexOutput {
     @builtin(position) position: vec4<f32>,
     @location(0) color: vec4<f32>,
-    @location(1) quadPos: vec2<f32>,
-    @location(2) worldPos: vec3<f32>,
-    @location(3) viewPos: vec3<f32>
+    @location(1) centerPos: vec2<f32>,
+    @location(2) particleRadius: f32,
+    @location(3) viewPos: vec3<f32>,
+    @location(4) worldPos: vec3<f32>
 };
 
+struct FinalVertexOutput {
+    @builtin(position) position: vec4<f32>,
+    @location(0) uv: vec2<f32>
+};
+
+// Vertex shader for particles
 @vertex
 fn vertexMain(
     @location(0) quadPos: vec2<f32>,
@@ -22,65 +31,96 @@ fn vertexMain(
 ) -> VertexOutput {
     var output: VertexOutput;
     
-    // Larger particles for better overlap
-    let particleSize = 0.2;
-    
+    let particleSize = 0.4;
     let worldPos = camera.model * vec4<f32>(position.xyz, 1.0);
     let viewPos = (camera.view * worldPos).xyz;
     
-    let billboardPos = viewPos + vec3<f32>(quadPos.x, quadPos.y, 0.0) * particleSize;
+    let clipPos = camera.projection * vec4<f32>(viewPos, 1.0);
+    let ndc = clipPos.xyz / clipPos.w;
+    let screenPos = vec2<f32>(ndc.x, ndc.y) * 0.5 + 0.5;
+    
+    let screenRadius = particleSize / abs(viewPos.z);
+    let expandedQuadPos = quadPos * 2.0;
+    let billboardPos = viewPos + vec3<f32>(expandedQuadPos.x, expandedQuadPos.y, 0.0) * particleSize;
     
     output.position = camera.projection * vec4<f32>(billboardPos, 1.0);
-    output.worldPos = worldPos.xyz;
+    output.centerPos = screenPos;
+    output.particleRadius = screenRadius;
     output.viewPos = viewPos;
-    output.quadPos = quadPos;
+    output.worldPos = worldPos.xyz;
     
-    // Color based on density
     let density = position.w;
     let normalizedDensity = density / 1000.0;
-    let lowColor = vec3<f32>(0.0, 0.0, 1.0);
-    let highColor = vec3<f32>(1.0, 0.0, 0.0);
+    let lowColor = vec3<f32>(0.2, 0.4, 0.8);
+    let highColor = vec3<f32>(0.0, 0.6, 1.0);
     output.color = vec4<f32>(mix(lowColor, highColor, normalizedDensity), 1.0);
     
     return output;
 }
 
+// Vertex shader for final full-screen quad
+@vertex
+fn vertexFinal(
+    @location(0) position: vec2<f32>
+) -> FinalVertexOutput {
+    var output: FinalVertexOutput;
+    output.position = vec4<f32>(position, 0.0, 1.0);
+    output.uv = position * 0.5 + 0.5;
+    return output;
+}
+
+// Field calculation for metaballs
+fn calculateField(dist: f32, radius: f32) -> f32 {
+    let r2 = dist * dist;
+    let scaled_dist = dist / radius;
+    
+    if (scaled_dist >= 1.0) {
+        return 0.0;
+    }
+    return (1.0 - scaled_dist * scaled_dist) * (1.0 - scaled_dist * scaled_dist);
+}
+
+// Fragment shader for particle field accumulation
 @fragment
 fn fragmentMain(input: VertexOutput) -> @location(0) vec4<f32> {
-    // Calculate distance from center
-    let distFromCenter = length(input.quadPos);
+    let fragCoord = input.position.xy;
+    let screenSize = vec2<f32>(800.0, 600.0);
+    let normalizedCoord = fragCoord / screenSize;
+    let dist = distance(normalizedCoord, input.centerPos);
     
-    // Create a more defined edge with smooth falloff
-    let fieldStrength = 1.0 - smoothstep(0.0, 1.0, distFromCenter);
+    let field = calculateField(dist, input.particleRadius);
     
-    // Sharp cutoff for solid appearance
-    if (fieldStrength < 0.3) {
+    if (field < 0.001) {
         discard;
     }
+    
+    // Debug: Make particles more visible
+    let debugColor = vec4<f32>(1.0, 0.0, 0.0, 1.0);  // Bright red
+    return vec4<f32>(debugColor.rgb * field, field);
+}
 
-    // Calculate surface normal for lighting
-    let normal = normalize(vec3<f32>(
-        input.quadPos.x,
-        input.quadPos.y,
-        sqrt(max(1.0 - input.quadPos.x * input.quadPos.x - input.quadPos.y * input.quadPos.y, 0.0))
-    ));
+fn calculateNormal(field: f32, pos: vec2<f32>, screenSize: vec2<f32>) -> vec3<f32> {
+    let pixelSize = 1.0 / screenSize;
+    let dx = dpdx(field) / pixelSize.x;
+    let dy = dpdy(field) / pixelSize.y;
+    return normalize(vec3<f32>(-dx, -dy, 1.0));
+}
 
-    // Enhanced lighting
-    let lightDir = normalize(vec3<f32>(1.0, 1.0, 1.0));
-    let viewDir = normalize(-input.viewPos);
-    let halfDir = normalize(lightDir + viewDir);
+// Fragment shader for final surface rendering
+@fragment
+fn fragmentFinal(input: FinalVertexOutput) -> @location(0) vec4<f32> {
+    let screenSize = vec2<f32>(800.0, 600.0);
+    let fieldSample = textureSample(accumTexture, texSampler, input.uv);
+    //let fieldSample = textureLoad(accumTexture, vec2<i32>(input.uv * screenSize), 0);
     
-    // Lighting components
-    let ambient = 0.2;
-    let diffuse = max(dot(normal, lightDir), 0.0);
-    let specular = pow(max(dot(normal, halfDir), 0.0), 32.0);
+    // Debug: Lower threshold and brighter output
+    let surfaceThreshold = 0.1;  // Lower threshold to see more particles
+    let field = fieldSample.a;
     
-    let lighting = ambient + diffuse * 0.7 + specular * 0.3;
+    if (field < surfaceThreshold) {
+        discard;
+    }
     
-    // Edge softening
-    let edgeSoftness = smoothstep(0.5, 0.7, fieldStrength);
-    
-    // Final color calculation
-
-    return vec4<f32>(input.color.rgb * lighting, edgeSoftness);
+    // Debug: Show raw accumulated value
+    return vec4<f32>(fieldSample.rgb * 5.0, 1.0);  // Amplify color
 }
