@@ -1,7 +1,9 @@
 struct Camera {
     model: mat4x4<f32>,
     view: mat4x4<f32>,
-    projection: mat4x4<f32>
+    projection: mat4x4<f32>,
+    viewport: vec2<f32>,
+    _padding: vec2<f32>      // 8 bytes padding to maintain 16-byte alignment
 };
 
 @group(0) @binding(0) var<uniform> camera: Camera;
@@ -29,26 +31,30 @@ fn vertexMain(
     @location(2) velocity: vec4<f32>
 ) -> VertexOutput {
     var output: VertexOutput;
-    
 
-    let particleSize = 0.2;
+    // Adjust particle size based on viewport
+    let baseParticleSize = 0.1;
+    let viewportScale = min(camera.viewport.x, camera.viewport.y);
+    let particleSize = baseParticleSize * viewportScale / 1000.0;
 
     let worldPos = camera.model * vec4<f32>(position.xyz, 1.0);
     let viewPos = (camera.view * worldPos).xyz;
+
+    // Scale particle size with distance
+    let distanceScale = max(0.5, min(2.0, 1.0 / abs(viewPos.z)));
+    let finalParticleSize = particleSize * distanceScale;
+
+    let billboardPos = viewPos + vec3<f32>(quadPos.x, quadPos.y, 0.0) * finalParticleSize;
+    let clipPos = camera.projection * vec4<f32>(billboardPos, 1.0);
     
-    let clipPos = camera.projection * vec4<f32>(viewPos, 1.0);
-    let ndc = clipPos.xyz / clipPos.w;
-    let screenPos = ndc.xy * 0.5 + 0.5;
-    
-    let screenRadius = particleSize / abs(viewPos.z);
-    let expandedQuadPos = quadPos * 2.0;
-    let billboardPos = viewPos + vec3<f32>(expandedQuadPos.x, expandedQuadPos.y, 0.0) * particleSize;
-    
-    output.position = camera.projection * vec4<f32>(billboardPos, 1.0);
-    output.centerPos = screenPos;
-    output.particleRadius = screenRadius;
+    output.position = clipPos;
     output.viewPos = viewPos;
     output.worldPos = worldPos.xyz;
+
+    // Correctly calculate screen space position
+    let ndc = clipPos.xyz / clipPos.w;
+    output.centerPos = ndc.xy * 0.5 + 0.5;
+    output.particleRadius = finalParticleSize * camera.viewport.y / clipPos.w;
 
     let density = position.w;
     let normalizedDensity = density / 1000.0;
@@ -82,12 +88,12 @@ fn calculateField(dist: f32, radius: f32) -> f32 {
 @fragment
 fn fragmentMain(input: VertexOutput) -> @location(0) vec4<f32> {
     let fragCoord = input.position.xy;
-    let screenSize = vec2<f32>(1920.0, 1080.0);
-    let normalizedCoord = fragCoord / screenSize;
+    let normalizedCoord = fragCoord / camera.viewport;
     let dist = distance(normalizedCoord, input.centerPos);
-
-    let field = calculateField(dist, input.particleRadius);
-
+    
+    let radiusInPixels = input.particleRadius / camera.viewport.y;
+    let field = calculateField(dist, radiusInPixels);
+    
     return vec4<f32>(field, field, field, 1.0);
 }
 

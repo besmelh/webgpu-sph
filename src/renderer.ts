@@ -76,26 +76,24 @@ export class Renderer {
         this.depthTextureView = this.depthTexture.createView();
     }
 
-
     private createPipelines() {
         // Create camera uniform buffer
         this.cameraBuffer = this.device.createBuffer({
-            size: 64 * 3,
+            size: 64 * 3 + 16,  // 3 matrices (64 bytes each) + viewport+padding (16 bytes)
             usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
         });
     
-        // Create bind group layout for camera (used in both passes)
+        // Create bind group layouts first
         const cameraBindGroupLayout = this.device.createBindGroupLayout({
             entries: [
                 {
                     binding: 0,
-                    visibility: GPUShaderStage.VERTEX,
+                    visibility: GPUShaderStage.VERTEX | GPUShaderStage.FRAGMENT,
                     buffer: { type: 'uniform' }
                 }
             ]
         });
     
-        // Create bind group layout for final pass (needs both camera and texture)
         const finalBindGroupLayout = this.device.createBindGroupLayout({
             entries: [
                 {
@@ -115,16 +113,15 @@ export class Renderer {
                 }
             ]
         });
-
-        // Add a sampler for texture sampling
+    
+        // Create sampler
         const sampler = this.device.createSampler({
             magFilter: 'linear',
             minFilter: 'linear',
             mipmapFilter: 'linear',
         });
-
     
-        // Create camera bind group
+        // Create bind groups using the layouts
         this.bindGroup = this.device.createBindGroup({
             layout: cameraBindGroupLayout,
             entries: [
@@ -135,7 +132,6 @@ export class Renderer {
             ]
         });
     
-        // Create final pass bind group
         this.finalBindGroup = this.device.createBindGroup({
             layout: finalBindGroupLayout,
             entries: [
@@ -146,15 +142,22 @@ export class Renderer {
                 {
                     binding: 1,
                     resource: sampler
-                },
+                }
             ]
+        });
+    
+        // Create pipeline layouts
+        const pipelineLayout = this.device.createPipelineLayout({
+            bindGroupLayouts: [cameraBindGroupLayout]
+        });
+    
+        const finalPipelineLayout = this.device.createPipelineLayout({
+            bindGroupLayouts: [cameraBindGroupLayout, finalBindGroupLayout]
         });
     
         // Create accumulation pipeline
         this.pipeline = this.device.createRenderPipeline({
-            layout: this.device.createPipelineLayout({
-                bindGroupLayouts: [cameraBindGroupLayout]
-            }),
+            layout: pipelineLayout,
             vertex: {
                 module: this.device.createShaderModule({
                     code: renderShader
@@ -223,14 +226,12 @@ export class Renderer {
     
         // Create final pipeline
         this.finalPipeline = this.device.createRenderPipeline({
-            layout: this.device.createPipelineLayout({
-                bindGroupLayouts: [cameraBindGroupLayout, finalBindGroupLayout]  // Include both layouts
-            }),
+            layout: finalPipelineLayout,
             vertex: {
                 module: this.device.createShaderModule({
                     code: renderShader
                 }),
-                entryPoint: 'vertexFinal',  // Use the new vertex entry point
+                entryPoint: 'vertexFinal',
                 buffers: [{
                     arrayStride: 8,
                     stepMode: 'vertex',
@@ -268,7 +269,6 @@ export class Renderer {
             }
         });
     }
-    
 
     async render(particleBuffer: GPUBuffer) {
         const viewDistance = 5.0;
@@ -291,9 +291,19 @@ export class Renderer {
             100
         );
 
+        // Create viewport data with padding
+        const viewportData = new Float32Array([
+            this.context.canvas.width,
+            this.context.canvas.height,
+            0.0,  // padding
+            0.0   // padding
+        ]);
+
+
         this.device.queue.writeBuffer(this.cameraBuffer, 0, model as Float32Array);
         this.device.queue.writeBuffer(this.cameraBuffer, 64, view as Float32Array);
         this.device.queue.writeBuffer(this.cameraBuffer, 128, projection as Float32Array);
+        this.device.queue.writeBuffer(this.cameraBuffer, 192, viewportData);
 
         const commandEncoder = this.device.createCommandEncoder();
 
@@ -355,7 +365,7 @@ export class Renderer {
         renderPass.setBindGroup(0, this.bindGroup);
         renderPass.setBindGroup(1, this.finalBindGroup);
         renderPass.setVertexBuffer(0, this.quadBuffer);
-        renderPass.draw(4, 1);  // Draw one quad
+        renderPass.draw(4);  // Draw one quad
         renderPass.end();
 
         this.device.queue.submit([commandEncoder.finish()]);
