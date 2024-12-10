@@ -18,7 +18,7 @@ export class SPHSimulation {
     private computePipelineForces!: GPUComputePipeline;
     private computeBindGroup!: GPUBindGroup;
     private workgroupSize = 64;
-    private numParticles = 4 * 1024;
+    private numParticles = 8 * 1024;
 
     private cursorState!: CursorState;
 

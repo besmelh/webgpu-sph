@@ -7,11 +7,11 @@ export const defaultSimulationParams: SimulationParams = {
     scalePressure: 1.0,
     scaleViscosity: 1.0,
     scaleGravity: 1.0,
-    gas_constant: 0.7,
-    rest_density: 40.0,
+    gas_constant: 0.4,
+    rest_density: 30.0,
     timeStep: 0.05,
-    smoothing_radius: 0.28,
-    viscosity: 12.7,
+    smoothing_radius: 0.2,
+    viscosity: 12,
     gravity: 9.8,
     particle_mass: 0.123,
     eps: 0.01,
@@ -35,7 +35,7 @@ export const defaultSimulationParams: SimulationParams = {
 
 // Simulation constants
 export const WORKGROUP_SIZE = 64;
-export const NUM_PARTICLES = 4 * 1024;
+export const NUM_PARTICLES = 8 * 1024;
 
 // Domain configuration
 export const DOMAIN_CONFIG = {

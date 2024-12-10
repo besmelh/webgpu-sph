@@ -119,7 +119,7 @@ export class Renderer {
                     blend: {
                         color: {
                             srcFactor: 'src-alpha',
-                            dstFactor: 'one',
+                            dstFactor: 'one-minus-src-alpha',
                             operation: 'add'
                         },
                         alpha: {
@@ -199,7 +199,7 @@ export class Renderer {
         renderPass.setBindGroup(0, this.bindGroup);
         renderPass.setVertexBuffer(0, this.quadBuffer);
         renderPass.setVertexBuffer(1, particleBuffer);
-        renderPass.draw(4, 4 * 1024, 0, 0); // 4 vertices per quad, NUM_PARTICLES instances
+        renderPass.draw(4, 8 * 1024, 0, 0); // 4 vertices per quad, NUM_PARTICLES instances
         renderPass.end();
 
         this.device.queue.submit([commandEncoder.finish()]);

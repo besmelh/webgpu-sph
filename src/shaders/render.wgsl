@@ -22,8 +22,8 @@ fn vertexMain(
 ) -> VertexOutput {
     var output: VertexOutput;
     
-    // Increase particle size for more overlap
-    let particleSize = 0.2;  // Increased from 0.15
+    // Larger particles for better overlap
+    let particleSize = 0.2;
     
     let worldPos = camera.model * vec4<f32>(position.xyz, 1.0);
     let viewPos = (camera.view * worldPos).xyz;
@@ -47,28 +47,40 @@ fn vertexMain(
 
 @fragment
 fn fragmentMain(input: VertexOutput) -> @location(0) vec4<f32> {
-    // Calculate radial distance from center of quad
+    // Calculate distance from center
     let distFromCenter = length(input.quadPos);
     
-    // Use gaussian-like falloff for smoother blending
-    let falloff = exp(-distFromCenter * distFromCenter * 2.0);
+    // Create a more defined edge with smooth falloff
+    let fieldStrength = 1.0 - smoothstep(0.0, 1.0, distFromCenter);
     
-    // Discard pixels too far from center
-    if (falloff < 0.8) {
+    // Sharp cutoff for solid appearance
+    if (fieldStrength < 0.3) {
         discard;
     }
-    
-    // Calculate lighting
-    let normal = normalize(vec3<f32>(input.quadPos.x, input.quadPos.y, 
-        sqrt(max(1.0 - input.quadPos.x * input.quadPos.x - input.quadPos.y * input.quadPos.y, 0.0))));
-    
+
+    // Calculate surface normal for lighting
+    let normal = normalize(vec3<f32>(
+        input.quadPos.x,
+        input.quadPos.y,
+        sqrt(max(1.0 - input.quadPos.x * input.quadPos.x - input.quadPos.y * input.quadPos.y, 0.0))
+    ));
+
+    // Enhanced lighting
     let lightDir = normalize(vec3<f32>(1.0, 1.0, 1.0));
-    let diffuse = max(dot(normal, lightDir), 0.0);
+    let viewDir = normalize(-input.viewPos);
+    let halfDir = normalize(lightDir + viewDir);
+    
+    // Lighting components
     let ambient = 0.2;
-    let lighting = ambient + diffuse * 0.8;
+    let diffuse = max(dot(normal, lightDir), 0.0);
+    let specular = pow(max(dot(normal, halfDir), 0.0), 32.0);
     
-    // Create smooth falloff for blending
-    let alpha = falloff * 0.5;  // Reduced alpha for better additive blending
+    let lighting = ambient + diffuse * 0.7 + specular * 0.3;
     
-    return vec4<f32>(input.color.rgb * lighting, alpha);
+    // Edge softening
+    let edgeSoftness = smoothstep(0.5, 0.7, fieldStrength);
+    
+    // Final color calculation
+
+    return vec4<f32>(input.color.rgb * lighting, edgeSoftness);
 }
