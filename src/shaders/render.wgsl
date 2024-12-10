@@ -24,30 +24,36 @@ struct FinalVertexOutput {
 
 @vertex
 fn vertexMain(
-    @location(0) centerPos: vec2<f32>,
+    @location(0) quadPos: vec2<f32>,
     @location(1) position: vec4<f32>,
     @location(2) velocity: vec4<f32>
 ) -> VertexOutput {
     var output: VertexOutput;
     
-    // Larger particles for better overlap
+
     let particleSize = 0.2;
-    
+
     let worldPos = camera.model * vec4<f32>(position.xyz, 1.0);
     let viewPos = (camera.view * worldPos).xyz;
     
-    let billboardPos = viewPos + vec3<f32>(centerPos.x, centerPos.y, 0.0) * particleSize;
+    let clipPos = camera.projection * vec4<f32>(viewPos, 1.0);
+    let ndc = clipPos.xyz / clipPos.w;
+    let screenPos = ndc.xy * 0.5 + 0.5;
+    
+    let screenRadius = particleSize / abs(viewPos.z);
+    let expandedQuadPos = quadPos * 2.0;
+    let billboardPos = viewPos + vec3<f32>(expandedQuadPos.x, expandedQuadPos.y, 0.0) * particleSize;
     
     output.position = camera.projection * vec4<f32>(billboardPos, 1.0);
-    output.worldPos = worldPos.xyz;
+    output.centerPos = screenPos;
+    output.particleRadius = screenRadius;
     output.viewPos = viewPos;
-    output.centerPos = centerPos;
-    
-    // Color based on density
+    output.worldPos = worldPos.xyz;
+
     let density = position.w;
     let normalizedDensity = density / 1000.0;
-    let lowColor = vec3<f32>(0.0, 0.0, 1.0);
-    let highColor = vec3<f32>(1.0, 0.0, 0.0);
+    let lowColor = vec3<f32>(0.2, 0.4, 0.8);
+    let highColor = vec3<f32>(0.0, 0.6, 1.0);
     output.color = vec4<f32>(mix(lowColor, highColor, normalizedDensity), 1.0);
     
     return output;
@@ -75,42 +81,14 @@ fn calculateField(dist: f32, radius: f32) -> f32 {
 
 @fragment
 fn fragmentMain(input: VertexOutput) -> @location(0) vec4<f32> {
-    // Calculate distance from center
-    let distFromCenter = length(input.centerPos);
-    
-    // Create a more defined edge with smooth falloff
-    let fieldStrength = 1.0 - smoothstep(0.0, 1.0, distFromCenter);
-    
-    // Sharp cutoff for solid appearance
-    if (fieldStrength < 0.3) {
-        discard;
-    }
+    let fragCoord = input.position.xy;
+    let screenSize = vec2<f32>(1920.0, 1080.0);
+    let normalizedCoord = fragCoord / screenSize;
+    let dist = distance(normalizedCoord, input.centerPos);
 
-    // Calculate surface normal for lighting
-    let normal = normalize(vec3<f32>(
-        input.centerPos.x,
-        input.centerPos.y,
-        sqrt(max(1.0 - input.centerPos.x * input.centerPos.x - input.centerPos.y * input.centerPos.y, 0.0))
-    ));
+    let field = calculateField(dist, input.particleRadius);
 
-    // Enhanced lighting
-    let lightDir = normalize(vec3<f32>(1.0, 1.0, 1.0));
-    let viewDir = normalize(-input.viewPos);
-    let halfDir = normalize(lightDir + viewDir);
-    
-    // Lighting components
-    let ambient = 0.2;
-    let diffuse = max(dot(normal, lightDir), 0.0);
-    let specular = pow(max(dot(normal, halfDir), 0.0), 32.0);
-    
-    let lighting = ambient + diffuse * 0.7 + specular * 0.3;
-    
-    // Edge softening
-    let edgeSoftness = smoothstep(0.5, 0.7, fieldStrength);
-    
-    // Final color calculation
-
-    return vec4<f32>(input.color.rgb * lighting, edgeSoftness);
+    return vec4<f32>(field, field, field, 1.0);
 }
 
 fn calculateNormal(field: f32, pos: vec2<f32>, screenSize: vec2<f32>) -> vec3<f32> {
