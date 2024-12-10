@@ -283,10 +283,12 @@ export class Renderer {
 
         const model = mat4.create();
         const view = mat4.lookAt(mat4.create(), eye, center, up);
+      // Adjust field of view and aspect ratio
+        const aspect = this.context.canvas.width / this.context.canvas.height;
         const projection = mat4.perspective(
             mat4.create(),
-            Math.PI / 4,
-            this.context.canvas.width / this.context.canvas.height,
+            Math.PI / 5,  // Wider field of view
+            aspect,
             0.1,
             100
         );

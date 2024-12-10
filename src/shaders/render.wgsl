@@ -31,30 +31,38 @@ fn vertexMain(
     @location(2) velocity: vec4<f32>
 ) -> VertexOutput {
     var output: VertexOutput;
-
-    // Adjust particle size based on viewport
-    let baseParticleSize = 0.1;
-    let viewportScale = min(camera.viewport.x, camera.viewport.y);
-    let particleSize = baseParticleSize * viewportScale / 1000.0;
-
+    
+    // Adjust particle size calculation
+    let baseParticleSize = 0.1;  // Increased from 0.02
+    // Calculate aspect ratio
+    let aspect = camera.viewport.x / camera.viewport.y;
+    
     let worldPos = camera.model * vec4<f32>(position.xyz, 1.0);
     let viewPos = (camera.view * worldPos).xyz;
-
-    // Scale particle size with distance
-    let distanceScale = max(0.5, min(2.0, 1.0 / abs(viewPos.z)));
-    let finalParticleSize = particleSize * distanceScale;
-
-    let billboardPos = viewPos + vec3<f32>(quadPos.x, quadPos.y, 0.0) * finalParticleSize;
-    let clipPos = camera.projection * vec4<f32>(billboardPos, 1.0);
     
+    // Scale particle size with distance and aspect ratio
+    let distanceScale = max(0.5, min(2.0, 1.0 / abs(viewPos.z)));
+    let finalParticleSize = baseParticleSize * distanceScale;
+    
+    // Adjust billboard position to account for aspect ratio
+    let billboardPos = viewPos + vec3<f32>(
+        quadPos.x * aspect,  // Scale X by aspect ratio
+        quadPos.y,
+        0.0
+    ) * baseParticleSize;
+    
+    let clipPos = camera.projection * vec4<f32>(billboardPos, 1.0);
     output.position = clipPos;
     output.viewPos = viewPos;
     output.worldPos = worldPos.xyz;
 
-    // Correctly calculate screen space position
+    // Calculate screen-space position
     let ndc = clipPos.xyz / clipPos.w;
     output.centerPos = ndc.xy * 0.5 + 0.5;
-    output.particleRadius = finalParticleSize * camera.viewport.y / clipPos.w;
+    // Adjust particle radius for screen space
+    output.particleRadius = finalParticleSize * 0.5;  // Simplified radius calculation
+    
+
 
     let density = position.w;
     let normalizedDensity = density / 1000.0;
@@ -76,23 +84,25 @@ fn vertexFinal(
 }
 
 fn calculateField(dist: f32, radius: f32) -> f32 {
-    let r2 = dist * dist;
-    let scaled_dist = dist / radius;
-    
-    if (scaled_dist >= 1.0) {
+    if (dist >= radius) {
         return 0.0;
     }
-    return (1.0 - scaled_dist * scaled_dist) * (1.0 - scaled_dist * scaled_dist);
+    let scaled_dist = dist / radius;
+    let falloff = 1.0 - scaled_dist;
+    return falloff * falloff;  // Squared falloff for smoother blending
 }
 
 @fragment
 fn fragmentMain(input: VertexOutput) -> @location(0) vec4<f32> {
     let fragCoord = input.position.xy;
-    let normalizedCoord = fragCoord / camera.viewport;
-    let dist = distance(normalizedCoord, input.centerPos);
+    // Normalize coordinates with aspect ratio correction
+    let normalizedCoord = vec2<f32>(
+        fragCoord.x / camera.viewport.x,
+        fragCoord.y / camera.viewport.y
+    );
     
-    let radiusInPixels = input.particleRadius / camera.viewport.y;
-    let field = calculateField(dist, radiusInPixels);
+    let dist = distance(normalizedCoord, input.centerPos);
+    let field = calculateField(dist, input.particleRadius);
     
     return vec4<f32>(field, field, field, 1.0);
 }
