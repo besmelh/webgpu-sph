@@ -30,7 +30,7 @@ export class Renderer {
     private createAccumulationTexture() {
         const width = this.context.canvas.width;
         const height = this.context.canvas.height;
-
+    
         this.accumTexture = this.device.createTexture({
             size: {
                 width: this.context.canvas.width,
@@ -40,7 +40,8 @@ export class Renderer {
             format: 'rgba16float',
             usage: GPUTextureUsage.RENDER_ATTACHMENT | 
                    GPUTextureUsage.TEXTURE_BINDING |
-                   GPUTextureUsage.COPY_DST
+                   GPUTextureUsage.COPY_DST |
+                   GPUTextureUsage.COPY_SRC // Add this flag
         });
         this.accumTextureView = this.accumTexture.createView();
     }
@@ -99,11 +100,6 @@ export class Renderer {
             entries: [
                 {
                     binding: 0,
-                    visibility: GPUShaderStage.VERTEX | GPUShaderStage.FRAGMENT,
-                    buffer: { type: 'uniform' }
-                },
-                {
-                    binding: 1,
                     visibility: GPUShaderStage.FRAGMENT,
                     texture: {
                         sampleType: 'float',
@@ -111,7 +107,7 @@ export class Renderer {
                     }
                 },
                 {
-                    binding: 2,
+                    binding: 1,
                     visibility: GPUShaderStage.FRAGMENT,
                     sampler: {
                         type: 'filtering'
@@ -145,16 +141,12 @@ export class Renderer {
             entries: [
                 {
                     binding: 0,
-                    resource: { buffer: this.cameraBuffer }
-                },
-                {
-                    binding: 1,
                     resource: this.accumTextureView
                 },
                 {
-                    binding: 2,
+                    binding: 1,
                     resource: sampler
-                }
+                },
             ]
         });
     
@@ -232,7 +224,7 @@ export class Renderer {
         // Create final pipeline
         this.finalPipeline = this.device.createRenderPipeline({
             layout: this.device.createPipelineLayout({
-                bindGroupLayouts: [finalBindGroupLayout]
+                bindGroupLayouts: [cameraBindGroupLayout, finalBindGroupLayout]  // Include both layouts
             }),
             vertex: {
                 module: this.device.createShaderModule({
@@ -278,7 +270,7 @@ export class Renderer {
     }
     
 
-    render(particleBuffer: GPUBuffer) {
+    async render(particleBuffer: GPUBuffer) {
         const viewDistance = 5.0;
         const radius = 5;
         const eye = vec3.fromValues(
@@ -325,8 +317,29 @@ export class Renderer {
         accumPass.setBindGroup(0, this.bindGroup);
         accumPass.setVertexBuffer(0, this.quadBuffer);
         accumPass.setVertexBuffer(1, particleBuffer);
-        accumPass.draw(4, 8 * 1024);
+        accumPass.draw(4, 4 * 1024);
         accumPass.end();
+
+        // Debug: Read back accumulation texture values
+        const debugBuffer = this.device.createBuffer({
+            size: 4 * 4,  // Space for one RGBA value
+            usage: GPUBufferUsage.COPY_DST | GPUBufferUsage.MAP_READ,
+        });
+
+        const debugCommandEncoder = this.device.createCommandEncoder();
+        debugCommandEncoder.copyTextureToBuffer(
+            { texture: this.accumTexture },
+            { buffer: debugBuffer, bytesPerRow: 256, rowsPerImage: 1 },
+            { width: 1, height: 1, depthOrArrayLayers: 1 }
+        );
+        
+        this.device.queue.submit([debugCommandEncoder.finish()]);
+        
+        // Wait for the GPU to finish
+        await debugBuffer.mapAsync(GPUMapMode.READ);
+        const data = new Float32Array(debugBuffer.getMappedRange());
+        console.log('Accumulation texture value:', data);
+        debugBuffer.unmap();
 
         // Second pass - render final surface
         const renderPass = commandEncoder.beginRenderPass({
@@ -339,7 +352,8 @@ export class Renderer {
         });
 
         renderPass.setPipeline(this.finalPipeline);
-        renderPass.setBindGroup(0, this.finalBindGroup);
+        renderPass.setBindGroup(0, this.bindGroup);
+        renderPass.setBindGroup(1, this.finalBindGroup);
         renderPass.setVertexBuffer(0, this.quadBuffer);
         renderPass.draw(4, 1);  // Draw one quad
         renderPass.end();
