@@ -22,7 +22,7 @@ fn vertexMain(
 ) -> VertexOutput {
     var output: VertexOutput;
     
-    let particleSize = 0.02;
+    let particleSize = 0.05;
     
     let worldPos = camera.model * vec4<f32>(position.xyz, 1.0);
     let viewPos = (camera.view * worldPos).xyz;
@@ -34,8 +34,8 @@ fn vertexMain(
     
     // Density-based coloring
     let normalizedDensity = position.w / 1000.0;
-    let lowColor = vec3<f32>(0.0, 0.0, 1.0);
-    let highColor = vec3<f32>(1.0, 0.0, 0.0);
+    let lowColor = vec3<f32>(1.0, 0.0, 0.2);
+    let highColor = vec3<f32>(0.2, 0.0, 1.0);
     let color = mix(lowColor, highColor, normalizedDensity);
     output.color = vec4<f32>(color, 1.0);
     

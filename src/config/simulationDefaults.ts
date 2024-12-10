@@ -1,6 +1,6 @@
 import { SimulationParams } from '../types/simulation';
 
-const x = 1.0;
+const x = 0.8;
 const cursor_rad_default = 0.8;
 const cursor_strength_default = 40;
 export const defaultSimulationParams: SimulationParams = {
@@ -16,6 +16,7 @@ export const defaultSimulationParams: SimulationParams = {
     particle_mass: 0.1, //lower falls in on clump then breaks, higher makes particles more dispersered equally
     eps: 0.01,
     bounce_damping: 0.002, //higher more bouncy
+
     min_domain_bound: [-x, -x, -x, 0.0],
     max_domain_bound: [x, x, x, 0.0],
 
@@ -28,7 +29,7 @@ export const defaultSimulationParams: SimulationParams = {
 
 // Simulation constants
 export const WORKGROUP_SIZE = 64;
-export const NUM_PARTICLES = 4 * 1024;
+export const NUM_PARTICLES = 8 * 1024;
 
 // Domain configuration
 export const DOMAIN_CONFIG = {
