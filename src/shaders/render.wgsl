@@ -8,10 +8,10 @@ struct Camera {
 
 struct VertexOutput {
     @builtin(position) position: vec4<f32>,
-    @location(0) worldPos: vec3<f32>,
-    @location(1) viewPos: vec3<f32>,
-    @location(2) density: f32,
-    @location(3) rayDir: vec3<f32>
+    @location(0) color: vec4<f32>,
+    @location(1) quadPos: vec2<f32>,
+    @location(2) worldPos: vec3<f32>,
+    @location(3) viewPos: vec3<f32>
 };
 
 @vertex
@@ -22,7 +22,7 @@ fn vertexMain(
 ) -> VertexOutput {
     var output: VertexOutput;
     
-    let particleSize = 0.03;
+    let particleSize = 0.2;
     
     let worldPos = camera.model * vec4<f32>(position.xyz, 1.0);
     let viewPos = (camera.view * worldPos).xyz;
@@ -30,75 +30,41 @@ fn vertexMain(
     let billboardPos = viewPos + vec3<f32>(quadPos.x, quadPos.y, 0.0) * particleSize;
     
     output.position = camera.projection * vec4<f32>(billboardPos, 1.0);
-    output.viewPos = billboardPos;
     output.worldPos = worldPos.xyz;
-    output.density = position.w;
+    output.viewPos = viewPos;
+    output.quadPos = quadPos;
     
-    // Calculate ray direction for ray marching
-    let camPos = vec3<f32>(0.0, 0.0, 5.0); // Camera position in view space
-    output.rayDir = normalize(billboardPos - camPos);
+    // Color based on density
+    let density = position.w;
+    let normalizedDensity = density / 1000.0;
+    let lowColor = vec3<f32>(0.0, 0.0, 1.0);
+    let highColor = vec3<f32>(1.0, 0.0, 0.0);
+    output.color = vec4<f32>(mix(lowColor, highColor, normalizedDensity), 1.0);
     
     return output;
 }
 
-// Metaball field calculation
-fn calculateField(pos: vec3<f32>, particlePos: vec3<f32>, radius: f32) -> f32 {
-    let dist = length(pos - particlePos);
-    return radius * radius / (dist * dist);
-}
-
 @fragment
-fn fragmentMain(
-    @location(0) worldPos: vec3<f32>,
-    @location(1) viewPos: vec3<f32>,
-    @location(2) density: f32,
-    @location(3) rayDir: vec3<f32>
-) -> @location(0) vec4<f32> {
-    let MAX_STEPS = 64;
-    let STEP_SIZE = 0.05;
-    let THRESHOLD = 1.0;
-
-    var pos = viewPos;
-    var totalDensity = 0.0;
-
-       // Ray marching loop
-    for(var i = 0; i < MAX_STEPS; i++) {
-        // Calculate metaball field at current position
-        let field = calculateField(pos, viewPos, 0.1);
-        totalDensity += field;
-        
-        // If we're inside the metaball surface
-        if(totalDensity > THRESHOLD) {
-            // Calculate normal for lighting
-            let epsilon = vec3<f32>(0.01, 0.0, 0.0);
-            let nx = calculateField(pos + epsilon.xyy, viewPos, 0.1) - 
-                    calculateField(pos - epsilon.xyy, viewPos, 0.1);
-            let ny = calculateField(pos + epsilon.yxy, viewPos, 0.1) - 
-                    calculateField(pos - epsilon.yxy, viewPos, 0.1);
-            let nz = calculateField(pos + epsilon.yyx, viewPos, 0.1) - 
-                    calculateField(pos - epsilon.yyx, viewPos, 0.1);
-            let normal = normalize(vec3<f32>(nx, ny, nz));
-            
-            // Basic lighting
-            let lightDir = normalize(vec3<f32>(1.0, 1.0, 1.0));
-            let diffuse = max(dot(normal, lightDir), 0.0);
-            let ambient = 0.2;
-            
-            // Color based on density
-            let baseColor = mix(
-                vec3<f32>(0.0, 0.0, 1.0), // Blue
-                vec3<f32>(1.0, 0.0, 0.0), // Red
-                min(density / 1000.0, 1.0)
-            );
-            
-            let finalColor = baseColor * (ambient + diffuse);
-            return vec4<f32>(finalColor, 1.0);
-        }
-        
-        pos += rayDir * STEP_SIZE;
+fn fragmentMain(input: VertexOutput) -> @location(0) vec4<f32> {
+    let distFromCenter = length(input.quadPos);
+    
+    let radius = 0.2;
+    if (distFromCenter > radius) {
+        discard;
     }
     
-    // Discard if we didn't hit anything
-    discard;
-    return vec4<f32>(0.0);
+    let smoothing = smoothstep(radius, radius * 0.8, distFromCenter);
+    let alpha = smoothing * 0.5;
+    
+    let normal = normalize(vec3<f32>(input.quadPos.x, input.quadPos.y, 
+        sqrt(max(1.0 - input.quadPos.x * input.quadPos.x - input.quadPos.y * input.quadPos.y, 0.0))));
+    
+    let lightDir = normalize(vec3<f32>(1.0, 1.0, 1.0));
+    let diffuse = max(dot(normal, lightDir), 0.0);
+    let ambient = 0.2;
+    
+    let lighting = ambient + diffuse * 0.8;
+    
+    // Create new vec4 with modified rgb values instead of modifying the swizzle
+    return vec4<f32>(input.color.rgb * lighting, input.color.a * alpha);
 }

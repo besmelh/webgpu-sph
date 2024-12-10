@@ -119,7 +119,7 @@ export class Renderer {
                     blend: {
                         color: {
                             srcFactor: 'src-alpha',
-                            dstFactor: 'one-minus-src-alpha',
+                            dstFactor: 'one',
                             operation: 'add'
                         },
                         alpha: {
