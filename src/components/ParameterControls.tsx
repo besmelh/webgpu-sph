@@ -3,27 +3,27 @@ import styled from 'styled-components';
 import { defaultSimulationParams, PARAM_CONSTRAINTS } from '../config/simulationDefaults';
 import { SimulationParams } from '../types/simulation';
 
-// Type guard to check if a parameter is a domain bound
+// type guard to check if a parameter is a domain bound
 const isDomainBoundParam = (param: keyof SimulationParams): param is 'min_domain_bound' | 'max_domain_bound' => {
     return param === 'min_domain_bound' || param === 'max_domain_bound';
 };
 
-// Type guard for scale parameters
+//  guard for scale parameters
 const isScaleParam = (param: keyof SimulationParams): boolean => {
     return param.startsWith('scale') || param === 'bounce_damping';
 };
 
-// Type guard for time step parameter
+// guard for time step parameter
 const isTimeStepParam = (param: keyof SimulationParams): boolean => {
     return param === 'timeStep';
 };
 
-// Add type guard for cursor parameters
+// guard for cursor parameters
 const isCursorParam = (param: keyof SimulationParams): boolean => {
     return param === 'cursorRadius' || param === 'cursorStrength';
 };
 
-// Get parameter constraints based on parameter type
+//  parameter constraints based on parameter type
 const getParamConstraints = (param: keyof SimulationParams) => {
     if (isDomainBoundParam(param)) {
         return PARAM_CONSTRAINTS.DOMAIN_BOUNDS;
@@ -85,7 +85,7 @@ const Button = styled.button`
     }
 `;
 
-// Helper function to format values
+// helper function to format values
 const formatValue = (value: number | number[]): string => {
     if (Array.isArray(value)) {
         return `[${value.map(v => v.toFixed(3)).join(', ')}]`;

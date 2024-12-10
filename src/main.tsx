@@ -38,13 +38,13 @@ class WebGPUApp {
             alphaMode: 'premultiplied',
         });
 
-        // Initialize simulation
+        // initialize simulation
         this.simulation = new SPHSimulation(this.device);
         this.renderer = new Renderer(this.device, this.context, format);
 
         this.simulation.updateSimulationParams(defaultSimulationParams);
         
-        // Initialize UI after simulation is created
+        // initialize UI after simulation is created
         this.initUI();
     }
 
@@ -61,24 +61,24 @@ class WebGPUApp {
             const root = createRoot(uiRoot);
             root.render(
                 <React.StrictMode>
-                    <ParameterControls 
+                    {/* <ParameterControls 
                         onParamChange={(params: SimulationParams) => {
-                            // Make sure we're using the right method name consistently
+                            // make sure we're using the right method name consistently
                             this.simulation.updateSimulationParams(params);
                         }}
                         onReset={async () => {
-                            // Stop the current animation
+                            // stop the current animation
                             if (this.animationFrameId) {
                                 cancelAnimationFrame(this.animationFrameId);
                             }
                             
-                            // Wait for the device to finish current operations
+                            // wait for the device to finish current operations
                             await this.device.queue.onSubmittedWorkDone();
                             
-                            // Reinitialize the simulation
+                            // reinitialize the simulation
                             await this.initializeSimulation();
                             
-                            // Restart the render loop
+                            // restart the render loop
                             this.render();
                         }}
                         onReinitialize={async () => {
@@ -89,7 +89,7 @@ class WebGPUApp {
                             await this.initializeSimulation(this.currentParams);
                             this.render();
                         }}
-                    />
+                    /> */}
                 </React.StrictMode>
             );
         }
@@ -98,14 +98,14 @@ class WebGPUApp {
     // }
 
     render = () => {
-        // Run simulation step
+        // run simulation step
         const commandBuffer = this.simulation.simulate();
         this.device.queue.submit([commandBuffer]);
 
-        // Render particles
+        // render particles
         this.renderer.render(this.simulation.getParticleBuffer());
 
-        // Request next frame
+        // request next frame
         this.animationFrameId = requestAnimationFrame(this.render);
     }
 
@@ -141,7 +141,7 @@ class WebGPUApp {
             this.simulation.updateCursor(0, 0, false, this.canvas);
         });
 
-        // Add touch support
+        // touch support
         this.canvas.addEventListener('touchstart', (e) => {
             e.preventDefault();
             this.isMouseDown = true;
@@ -173,7 +173,7 @@ class WebGPUApp {
     }
 }
 
-// Start the application
+// start the application
 async function main() {
     const app = new WebGPUApp();
     await app.initialize();

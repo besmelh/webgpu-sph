@@ -19,18 +19,18 @@ export class CanvasResizeHandler {
         const parentRect = this.canvas.parentElement?.getBoundingClientRect();
         if (!parentRect) return;
 
-        // Get the device pixel ratio
+        // device pixel ratio
         const dpr = window.devicePixelRatio || 1;
         
-        // Set the canvas size in pixels
+        // set canvas size in pixels
         this.canvas.width = parentRect.width * dpr;
         this.canvas.height = parentRect.height * dpr;
         
-        // Set the canvas display size in CSS pixels
+        // set canvas display size in CSS pixels
         this.canvas.style.width = `${parentRect.width}px`;
         this.canvas.style.height = `${parentRect.height}px`;
 
-        // Reconfigure the context
+        // reconfigure the context
         this.context.configure({
             device: this.device,
             format: this.format,
@@ -77,7 +77,7 @@ class SimulationTimer {
         this.lastTime = currentTime;
         this.frameCount++;
 
-        // Update FPS counter every second
+        // update FPS counter every second
         if (currentTime - this.lastFpsUpdate >= 1000) {
             const fps = Math.round(this.frameCount * 1000 / (currentTime - this.lastFpsUpdate));
             this.fpsElement.textContent = `FPS: ${fps}`;

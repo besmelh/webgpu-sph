@@ -21,6 +21,13 @@ export interface SimulationParams {
 
     cursor_data: number[];  // [x, y, z, radius]
     cursor_force: number[]; // [unused, unused, unused, strength/active]
+
+    metaballParams: {
+        size: number;
+        threshold: number;
+        stepSize: number;
+        maxSteps: number;
+    };
 }
 
 export interface Particle {

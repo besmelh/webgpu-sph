@@ -138,9 +138,9 @@ fn computeForces(@builtin(global_invocation_id) global_id: vec3<u32>) {
 
         if (force_strength > 0.0 && r_len < cursor_radius) {
             let normalized_dist = r_len / cursor_radius;
-            let force_magnitude = force_strength * (1.0 - normalized_dist) * 2.0; // Increased multiplier
+            let force_magnitude = force_strength * (1.0 - normalized_dist) * 2.0; 
             cursorForce = normalize(r_vec) * force_magnitude;
-            // For debugging: Color particles that are being affected by cursor
+            // color particles that are being affected by cursor
             particleBuffer.particles[i].position.w *= 1.5; // This will make affected particles appear redder
         }
     }

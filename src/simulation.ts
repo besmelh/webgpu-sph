@@ -137,7 +137,6 @@ export class SPHSimulation {
         // });
     }
 
-    // In simulation.ts class
     // private computePipelineDensity!: GPUComputePipeline;
     // private computePipelineForces!: GPUComputePipeline;
 
@@ -247,27 +246,27 @@ export class SPHSimulation {
         return this.particleBuffer;
     }
 
-    // Convert screen coordinates to world space
+    // convert screen coordinates to world space
     private screenToWorld(screenX: number, screenY: number, canvas: HTMLCanvasElement): [number, number, number] {
         const rect = canvas.getBoundingClientRect();
 
-        // Normalize to [-1, 1] and scale to match simulation domain
+        // normalize to [-1, 1] and scale to match simulation domain
         const x = ((screenX - rect.left) / rect.width * 2 - 1) * 1.0;  
         const y = (1 - (screenY - rect.top) / rect.height * 2) * 1.0;  // Flip Y and scale
         
-        // Get the camera's view parameters (these should match your renderer.ts values)
-        const viewDistance = 5.0;  // Match the eye distance in renderer.ts
-        const fov = Math.PI / 4;   // Match the perspective FOV in renderer.ts
+        // get the camera's view parameters
+        const viewDistance = 5.0; 
+        const fov = Math.PI / 4;   
         
-        // Calculate world space position based on camera setup
+        // calculate world space position based on camera setup
         const aspectRatio = canvas.width / canvas.height;
         const tanHalfFov = Math.tan(fov / 2);
         
-        // Calculate the world space coordinates
+        // calculate the world space coordinates
         const worldX = (x * aspectRatio * tanHalfFov * viewDistance);
         const worldY = (y * tanHalfFov * viewDistance);
         
-        // Project onto a plane at z = 0
+        // project onto a plane at z = 0
         const worldZ = 0;
         
         console.log('Screen coords:', screenX, screenY);

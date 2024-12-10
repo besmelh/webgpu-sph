@@ -8,10 +8,10 @@ struct Camera {
 
 struct VertexOutput {
     @builtin(position) position: vec4<f32>,
-    @location(0) color: vec4<f32>,
-    @location(1) texCoord: vec2<f32>,
-    @location(2) normal: vec3<f32>,
-    @location(3) viewPos: vec3<f32>
+    @location(0) worldPos: vec3<f32>,
+    @location(1) viewPos: vec3<f32>,
+    @location(2) density: f32,
+    @location(3) rayDir: vec3<f32>
 };
 
 @vertex
@@ -22,7 +22,7 @@ fn vertexMain(
 ) -> VertexOutput {
     var output: VertexOutput;
     
-    let particleSize = 0.02;
+    let particleSize = 0.03;
     
     let worldPos = camera.model * vec4<f32>(position.xyz, 1.0);
     let viewPos = (camera.view * worldPos).xyz;
@@ -31,67 +31,74 @@ fn vertexMain(
     
     output.position = camera.projection * vec4<f32>(billboardPos, 1.0);
     output.viewPos = billboardPos;
+    output.worldPos = worldPos.xyz;
+    output.density = position.w;
     
-    // Density-based coloring
-    let normalizedDensity = position.w / 1000.0;
-    let lowColor = vec3<f32>(0.0, 0.0, 1.0);
-    let highColor = vec3<f32>(1.0, 0.0, 0.0);
-    let color = mix(lowColor, highColor, normalizedDensity);
-    output.color = vec4<f32>(color, 1.0);
-    
-    output.texCoord = quadPos * 0.5 + 0.5;
-    
-    // Calculate spherical normal
-    let sphereNormal = normalize(vec3<f32>(quadPos.x, quadPos.y, 
-        sqrt(max(1.0 - quadPos.x * quadPos.x - quadPos.y * quadPos.y, 0.0))));
-    output.normal = sphereNormal;
+    // Calculate ray direction for ray marching
+    let camPos = vec3<f32>(0.0, 0.0, 5.0); // Camera position in view space
+    output.rayDir = normalize(billboardPos - camPos);
     
     return output;
 }
 
+// Metaball field calculation
+fn calculateField(pos: vec3<f32>, particlePos: vec3<f32>, radius: f32) -> f32 {
+    let dist = length(pos - particlePos);
+    return radius * radius / (dist * dist);
+}
+
 @fragment
 fn fragmentMain(
-    @location(0) color: vec4<f32>,
-    @location(1) texCoord: vec2<f32>,
-    @location(2) normal: vec3<f32>,
-    @location(3) viewPos: vec3<f32>
+    @location(0) worldPos: vec3<f32>,
+    @location(1) viewPos: vec3<f32>,
+    @location(2) density: f32,
+    @location(3) rayDir: vec3<f32>
 ) -> @location(0) vec4<f32> {
-    // Discard fragments outside circle
-    let dist = length(texCoord * 2.0 - 1.0);
-    if (dist > 1.0) {
-        discard;
+    let MAX_STEPS = 64;
+    let STEP_SIZE = 0.05;
+    let THRESHOLD = 1.0;
+
+    var pos = viewPos;
+    var totalDensity = 0.0;
+
+       // Ray marching loop
+    for(var i = 0; i < MAX_STEPS; i++) {
+        // Calculate metaball field at current position
+        let field = calculateField(pos, viewPos, 0.1);
+        totalDensity += field;
+        
+        // If we're inside the metaball surface
+        if(totalDensity > THRESHOLD) {
+            // Calculate normal for lighting
+            let epsilon = vec3<f32>(0.01, 0.0, 0.0);
+            let nx = calculateField(pos + epsilon.xyy, viewPos, 0.1) - 
+                    calculateField(pos - epsilon.xyy, viewPos, 0.1);
+            let ny = calculateField(pos + epsilon.yxy, viewPos, 0.1) - 
+                    calculateField(pos - epsilon.yxy, viewPos, 0.1);
+            let nz = calculateField(pos + epsilon.yyx, viewPos, 0.1) - 
+                    calculateField(pos - epsilon.yyx, viewPos, 0.1);
+            let normal = normalize(vec3<f32>(nx, ny, nz));
+            
+            // Basic lighting
+            let lightDir = normalize(vec3<f32>(1.0, 1.0, 1.0));
+            let diffuse = max(dot(normal, lightDir), 0.0);
+            let ambient = 0.2;
+            
+            // Color based on density
+            let baseColor = mix(
+                vec3<f32>(0.0, 0.0, 1.0), // Blue
+                vec3<f32>(1.0, 0.0, 0.0), // Red
+                min(density / 1000.0, 1.0)
+            );
+            
+            let finalColor = baseColor * (ambient + diffuse);
+            return vec4<f32>(finalColor, 1.0);
+        }
+        
+        pos += rayDir * STEP_SIZE;
     }
-
-    // Material properties
-    let ambient = 0.5;
-    let diffuseStrength = 0.6;
-    let specularStrength = 0.4;
-    let shininess = 32.0;
     
-    // Light properties
-    let lightPos = vec3<f32>(10.0, 10.0, 10.0);
-    let lightColor = vec3<f32>(1.0, 1.0, 1.0);
-    
-    // Calculate lighting vectors
-    let lightDir = normalize(lightPos - viewPos);
-    let viewDir = normalize(-viewPos);
-    let reflectDir = reflect(-lightDir, normal);
-    
-    // Ambient
-    let ambientColor = ambient * lightColor;
-    
-    // Diffuse
-    let diffuseFactor = max(dot(normal, lightDir), 0.0);
-    let diffuseColor = diffuseStrength * diffuseFactor * lightColor;
-    
-    // Specular
-    let specularFactor = pow(max(dot(viewDir, reflectDir), 0.0), shininess);
-    let specularColor = specularStrength * specularFactor * lightColor;
-    
-    // Combine lighting
-    let finalColor = (ambientColor + diffuseColor + specularColor) * color.rgb;
-
-
-    
-    return vec4<f32>(finalColor, color.a);
+    // Discard if we didn't hit anything
+    discard;
+    return vec4<f32>(0.0);
 }

@@ -82,7 +82,7 @@ export class Renderer {
                 buffers: [
                     // Quad vertices
                     {
-                        arrayStride: 8, // 2 floats * 4 bytes
+                        arrayStride: 8,
                         stepMode: 'vertex',
                         attributes: [{
                             format: 'float32x2',
@@ -92,7 +92,7 @@ export class Renderer {
                     },
                     // Particle data (instanced)
                     {
-                        arrayStride: 32, // 8 floats * 4 bytes
+                        arrayStride: 32,
                         stepMode: 'instance',
                         attributes: [
                             {
@@ -132,7 +132,6 @@ export class Renderer {
             },
             primitive: {
                 topology: 'triangle-strip',
-                stripIndexFormat: 'uint32',
                 cullMode: 'none'
             },            
             depthStencil: {
