@@ -22,7 +22,8 @@ fn vertexMain(
 ) -> VertexOutput {
     var output: VertexOutput;
     
-    let particleSize = 0.2;
+    // Increase particle size for more overlap
+    let particleSize = 0.2;  // Increased from 0.15
     
     let worldPos = camera.model * vec4<f32>(position.xyz, 1.0);
     let viewPos = (camera.view * worldPos).xyz;
@@ -46,25 +47,28 @@ fn vertexMain(
 
 @fragment
 fn fragmentMain(input: VertexOutput) -> @location(0) vec4<f32> {
+    // Calculate radial distance from center of quad
     let distFromCenter = length(input.quadPos);
     
-    let radius = 0.2;
-    if (distFromCenter > radius) {
+    // Use gaussian-like falloff for smoother blending
+    let falloff = exp(-distFromCenter * distFromCenter * 2.0);
+    
+    // Discard pixels too far from center
+    if (falloff < 0.8) {
         discard;
     }
     
-    let smoothing = smoothstep(radius, radius * 0.8, distFromCenter);
-    let alpha = smoothing * 0.5;
-    
+    // Calculate lighting
     let normal = normalize(vec3<f32>(input.quadPos.x, input.quadPos.y, 
         sqrt(max(1.0 - input.quadPos.x * input.quadPos.x - input.quadPos.y * input.quadPos.y, 0.0))));
     
     let lightDir = normalize(vec3<f32>(1.0, 1.0, 1.0));
     let diffuse = max(dot(normal, lightDir), 0.0);
     let ambient = 0.2;
-    
     let lighting = ambient + diffuse * 0.8;
     
-    // Create new vec4 with modified rgb values instead of modifying the swizzle
-    return vec4<f32>(input.color.rgb * lighting, input.color.a * alpha);
+    // Create smooth falloff for blending
+    let alpha = falloff * 0.5;  // Reduced alpha for better additive blending
+    
+    return vec4<f32>(input.color.rgb * lighting, alpha);
 }
