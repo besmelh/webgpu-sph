@@ -279,7 +279,7 @@ export class Renderer {
             radius * Math.cos(performance.now() / 10000)
         );
         const center = vec3.fromValues(0, 0, 0);
-        const up = vec3.fromValues(0, 1, 0);
+        const up = vec3.fromValues(0, -1, 0);
 
         const model = mat4.create();
         const view = mat4.lookAt(mat4.create(), eye, center, up);

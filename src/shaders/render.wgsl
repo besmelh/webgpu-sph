@@ -33,7 +33,7 @@ fn vertexMain(
     var output: VertexOutput;
     
     // Adjust particle size calculation
-    let baseParticleSize = 0.2;  // Increased from 0.02
+    let baseParticleSize = 0.05;  // Increased from 0.02
     // Calculate aspect ratio
     let aspect = camera.viewport.x / camera.viewport.y;
     
@@ -67,6 +67,8 @@ fn vertexMain(
     let lowColor = vec3<f32>(0.2, 0.4, 0.8);
     let highColor = vec3<f32>(0.0, 0.6, 1.0);
     output.color = vec4<f32>(mix(lowColor, highColor, normalizedDensity), 1.0);
+
+    
     
     return output;
 }
@@ -82,26 +84,39 @@ fn vertexFinal(
 }
 
 fn calculateField(dist: f32, radius: f32) -> f32 {
-    if (dist >= radius) {
+    let r = dist / radius;
+    if (r > 1.0) {
         return 0.0;
     }
-    let scaled_dist = dist / radius;
-    return (1.0 - scaled_dist * scaled_dist) * 0.5;
+    // Smoother circular falloff
+    return exp(-r * r * 4.0);
 }
 
 @fragment
 fn fragmentMain(input: VertexOutput) -> @location(0) vec4<f32> {
     let fragCoord = input.position.xy;
-    // Normalize coordinates with aspect ratio correction
     let normalizedCoord = vec2<f32>(
         fragCoord.x / camera.viewport.x,
         fragCoord.y / camera.viewport.y
     );
     
-    let dist = distance(normalizedCoord, input.centerPos);
+    // Calculate circular distance from center
+    let dist = length(input.centerPos - normalizedCoord);
     let field = calculateField(dist, input.particleRadius);
     
-    return vec4<f32>(field, field, field, 1.0);
+    // Discard fragments outside circle
+    if (field < 0.01) {
+        discard;
+    }
+
+    // Add lighting
+    let normal = normalize(vec3<f32>(0.0, 0.0, 1.0));
+    let lightDir = normalize(vec3<f32>(1.0, 1.0, 1.0));
+    let diffuse = max(dot(normal, lightDir), 0.0);
+    let ambient = 0.3;
+    let lighting = ambient + diffuse * 0.7;
+
+    return vec4<f32>(input.color.rgb * lighting * field, field);
 }
 
 fn calculateNormal(field: f32, pos: vec2<f32>, screenSize: vec2<f32>) -> vec3<f32> {
@@ -114,7 +129,19 @@ fn calculateNormal(field: f32, pos: vec2<f32>, screenSize: vec2<f32>) -> vec3<f3
 @fragment
 fn fragmentFinal(input: FinalVertexOutput) -> @location(0) vec4<f32> {
 
+    //let fieldSample = textureSample(accumTexture, texSampler, input.uv);   
+    //return fieldSample;
 
-    let fieldSample = textureSample(accumTexture, texSampler, input.uv);   
-    return fieldSample;
+let fieldSample = textureSample(accumTexture, texSampler, input.uv);
+    
+    // Apply threshold and smoothing for better contrast
+    let threshold = 0.1;
+    let smoothing = 0.2;
+    let fieldStrength = smoothstep(threshold, threshold + smoothing, fieldSample.r);
+    
+    // Add more dynamic range to colors
+    let baseColor = vec3<f32>(0.2, 0.4, 0.8);  // blue-ish base color
+    let finalColor = baseColor * fieldStrength;
+    
+    return vec4<f32>(finalColor, 1.0);
 }
