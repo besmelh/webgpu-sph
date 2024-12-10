@@ -287,7 +287,7 @@ export class Renderer {
         const aspect = this.context.canvas.width / this.context.canvas.height;
         const projection = mat4.perspective(
             mat4.create(),
-            Math.PI / 5,  // Wider field of view
+            Math.PI / 4,  // Wider field of view
             aspect,
             0.1,
             100

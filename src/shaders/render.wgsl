@@ -33,7 +33,7 @@ fn vertexMain(
     var output: VertexOutput;
     
     // Adjust particle size calculation
-    let baseParticleSize = 0.1;  // Increased from 0.02
+    let baseParticleSize = 0.2;  // Increased from 0.02
     // Calculate aspect ratio
     let aspect = camera.viewport.x / camera.viewport.y;
     
@@ -41,13 +41,13 @@ fn vertexMain(
     let viewPos = (camera.view * worldPos).xyz;
     
     // Scale particle size with distance and aspect ratio
-    let distanceScale = max(0.5, min(2.0, 1.0 / abs(viewPos.z)));
+    let distanceScale = max(1000, min(1.0, 1.0 / abs(viewPos.z)));
     let finalParticleSize = baseParticleSize * distanceScale;
     
     // Adjust billboard position to account for aspect ratio
     let billboardPos = viewPos + vec3<f32>(
-        quadPos.x * aspect,  // Scale X by aspect ratio
-        quadPos.y,
+        quadPos.x,  // Scale X by aspect ratio
+        quadPos.y ,
         0.0
     ) * baseParticleSize;
     
@@ -61,8 +61,6 @@ fn vertexMain(
     output.centerPos = ndc.xy * 0.5 + 0.5;
     // Adjust particle radius for screen space
     output.particleRadius = finalParticleSize * 0.5;  // Simplified radius calculation
-    
-
 
     let density = position.w;
     let normalizedDensity = density / 1000.0;
@@ -88,8 +86,7 @@ fn calculateField(dist: f32, radius: f32) -> f32 {
         return 0.0;
     }
     let scaled_dist = dist / radius;
-    let falloff = 1.0 - scaled_dist;
-    return falloff * falloff;  // Squared falloff for smoother blending
+    return (1.0 - scaled_dist * scaled_dist) * 0.5;
 }
 
 @fragment
